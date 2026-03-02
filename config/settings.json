@@ -1,0 +1,7 @@
+{
+  "mock": {
+    "enabled": true,
+    "mode": "force_break",
+    "price": 50000
+  }
+}

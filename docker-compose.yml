@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  kis-trader:
+    build: .
+    container_name: kis_trader
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+    stdin_open: true
+    tty: true
