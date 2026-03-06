@@ -2,6 +2,7 @@ import json
 import time
 from app.execution.order_executor import OrderExecutor
 from app.portfolio.position import Position
+from app.core.scheduler import EventScheduler
 
 
 class TradingEngine:
@@ -11,6 +12,9 @@ class TradingEngine:
 
         self.executor = OrderExecutor(self.settings)
         self.positions = {}
+
+        self.scheduler = EventScheduler()
+        self.scheduler.setup(self)
 
         self.last_monitor_log = 0
         self.last_exit_time = 0
@@ -114,6 +118,9 @@ class TradingEngine:
     # ==========================
     def tick(self):
 
+        # scheduler 실행
+        self.scheduler.run()
+
         current_price = self.executor.get_price()
 
         # 🔥 먼저 체크 (현재값은 박스에 아직 포함 안 됨)
@@ -129,3 +136,19 @@ class TradingEngine:
         if not self.positions:
             if now - self.last_exit_time > self.reentry_cooldown:
                 self.enter_position("005930", 1)
+
+    # ==========================
+    # Scheduler Events (placeholder)
+    # ==========================
+
+    def market_tick(self):
+        pass
+
+    def session_check(self):
+        pass
+
+    def scanner_update(self):
+        pass
+
+    def overnight_eval(self):
+        pass
