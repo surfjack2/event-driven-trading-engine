@@ -3,6 +3,7 @@ import time
 from app.execution.order_executor import OrderExecutor
 from app.portfolio.position import Position
 from app.core.scheduler import EventScheduler
+from app.market.market_manager import MarketManager
 
 
 class TradingEngine:
@@ -11,6 +12,8 @@ class TradingEngine:
             self.settings = json.load(f)
 
         self.executor = OrderExecutor(self.settings)
+        self.market = MarketManager(self.executor)
+
         self.positions = {}
 
         self.scheduler = EventScheduler()
@@ -121,7 +124,13 @@ class TradingEngine:
         # scheduler 실행
         self.scheduler.run()
 
-        current_price = self.executor.get_price()
+        current_price = self.market.get_price("005930")
+
+        rsi = self.market.get_rsi("005930")
+        macd = self.market.get_macd("005930")
+        stoch = self.market.get_stochastic("005930")
+
+        print(f"[IND] RSI:{rsi} MACD:{macd} STOCH:{stoch}")
 
         # 🔥 먼저 체크 (현재값은 박스에 아직 포함 안 됨)
         self.check_positions(current_price)
