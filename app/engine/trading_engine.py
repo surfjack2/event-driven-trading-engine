@@ -1,7 +1,7 @@
 import json
 import time
-from app.order_executor import OrderExecutor
-from app.account import Position
+from app.execution.order_executor import OrderExecutor
+from app.portfolio.position import Position
 
 
 class TradingEngine:
