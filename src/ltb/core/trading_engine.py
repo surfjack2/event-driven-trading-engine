@@ -1,176 +1,124 @@
-import json
 import time
-from ltb.execution.order_executor import OrderExecutor
-from ltb.portfolio.position import Position
-from ltb.portfolio.portfolio_manager import PortfolioManager
-from ltb.core.scheduler import EventScheduler
-from ltb.market.market_manager import MarketManager
-from ltb.strategy.strategy_engine import StrategyEngine
+import logging
+
+from ltb.data.universe_builder import UniverseBuilder
+from ltb.data.market_manager import MarketManager
+from ltb.strategy.strategy_scanner import StrategyScanner
+from ltb.execution.execution_engine import ExecutionEngine
+from ltb.risk.position_size_manager import PositionSizeManager
+from ltb.risk.portfolio_risk_manager import PortfolioRiskManager
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("logs/engine.log"),
+        logging.StreamHandler()
+    ]
+)
+
 
 class TradingEngine:
+
     def __init__(self):
-        with open("config/settings.json") as f:
-            self.settings = json.load(f)
 
-        self.executor = OrderExecutor(self.settings)
+        self.logger = logging.getLogger("engine")
 
-        self.market = MarketManager(self.executor)
-        self.strategy = StrategyEngine(self.market)
+        self.universe_builder = UniverseBuilder()
+        self.universe = self.universe_builder.build()
 
-        self.portfolio = PortfolioManager()
+        self.market = MarketManager(self.universe)
 
-        self.scheduler = EventScheduler()
-        self.scheduler.setup(self)
+        self.scanner = StrategyScanner(self.market)
 
-        self.last_monitor_log = 0
-        self.last_exit_time = 0
-        self.reentry_cooldown = 5
+        self.execution = ExecutionEngine(self)
 
-        # 📦 Box 설정
-        self.price_history = []
-        self.box_period = 60  # POC면 20으로 줄여도 됨
+        self.position_sizer = PositionSizeManager(self)
+        self.portfolio_risk = PortfolioRiskManager(self)
 
-    # ==========================
-    # 진입
-    # ==========================
-    def enter_position(self, symbol, qty):
-        buy = self.executor.market_buy(symbol, qty)
-        entry_price = buy["price"]
-        stop_price = entry_price * 0.975
+        self.positions = {}
 
-        pos = self.portfolio.open_position(
-        symbol,
-        qty,
-        entry_price,
-        stop_price
-    )
+        self.max_positions = 5
 
-        print(f"Entered {symbol} at {entry_price}, stop at {stop_price}")
+        self.cooldown = {}
+        self.cooldown_seconds = 60
 
-    # ==========================
-    # PANIC (최상단 방어)
-    # ==========================
-    def panic_guard(self, symbol, pos, current_price):
-        panic_threshold = pos.entry_price * 0.97
+        self.last_universe_update = time.time()
 
-        if current_price <= panic_threshold:
-            print("🚨 PANIC TRIGGERED")
-            self.exit_position(symbol, pos.qty, reason="PANIC")
-            return True
+        self.logger.info("=== KIS TRADER ENGINE STARTED ===")
 
-        return False
-
-    # ==========================
-    # BOX 계산
-    # ==========================
-    def calculate_box(self):
-        if len(self.price_history) < self.box_period:
-            return None, None
-
-        upper = max(self.price_history)
-        lower = min(self.price_history)
-
-        return upper, lower
-
-    # ==========================
-    # BOX 붕괴
-    # ==========================
-    def box_guard(self, symbol, pos, current_price):
-        upper, lower = self.calculate_box()
-
-        if lower is None:
-            return False
-
-        if current_price < lower:
-            print("🧱 BOX BREAKDOWN")
-            self.exit_position(symbol, pos.qty, reason="BOX_BREAK")
-            return True
-
-        return False
-
-    # ==========================
-    # 청산
-    # ==========================
-    def exit_position(self, symbol, qty, reason="STOP"):
-        sell = self.executor.market_sell(symbol, qty)
-        print(f"EXIT ({reason}):", sell)
-
-        self.portfolio.close_position(symbol)
-        self.last_exit_time = time.time()
-
-    # ==========================
-    # 포지션 체크
-    # ==========================
-    def check_positions(self, current_price):
-
-        for symbol, pos in list(self.portfolio.get_positions().items()):
-
-            now = time.time()
-
-            if now - self.last_monitor_log > 5:
-                upper, lower = self.calculate_box()
-                print(f"[MONITOR]{symbol}|Price:{current_price}|BoxL:{lower}|Stop:{pos.stop_price}")
-                self.last_monitor_log = now
-
-            # 1st Panic
-            if self.panic_guard(symbol, pos, current_price):
-                continue
-
-            # 2nd Box
-            if self.box_guard(symbol, pos, current_price):
-                continue
-
-            # 3rd Stop
-            if current_price <= pos.stop_price:
-                self.exit_position(symbol, pos.qty)
-
-    # ==========================
-    # TICK
-    # ==========================
     def tick(self):
 
-        # scheduler 실행
-        self.scheduler.run()
-
-        current_price = self.market.get_price("005930")
-
-        rsi = self.market.get_rsi("005930")
-        macd = self.market.get_macd("005930")
-        stoch = self.market.get_stochastic("005930")
-
-        print(f"[IND] RSI:{rsi} MACD:{macd} STOCH:{stoch}")
-
-        # 🔥 먼저 체크 (현재값은 박스에 아직 포함 안 됨)
-        self.check_positions(current_price)
-
-        # 📦 그 다음 history 저장
-        self.price_history.append(current_price)
-        if len(self.price_history) > self.box_period:
-            self.price_history.pop(0)
-
-        # 진입 로직
         now = time.time()
 
-        symbol = "005930"
+        if now - self.last_universe_update > 30:
 
-        if not self.portfolio.get_positions():
-            if now - self.last_exit_time > self.reentry_cooldown:
+            self.universe = self.universe_builder.build()
 
-                if self.strategy.check_entry(symbol):
-                    self.enter_position(symbol, 1)
+            self.market.set_universe(self.universe)
 
-    # ==========================
-    # Scheduler Events (placeholder)
-    # ==========================
+            self.last_universe_update = now
 
-    def market_tick(self):
-        pass
+        self.monitor_positions()
 
-    def session_check(self):
-        pass
+        candidates = self.scanner.scan(self.universe)
 
-    def scanner_update(self):
-        pass
+        self.logger.info(f"Scanner found {len(candidates)} candidates")
 
-    def overnight_eval(self):
-        pass
+        for symbol in candidates:
+
+            if len(self.positions) >= self.max_positions:
+                return
+
+            if symbol in self.positions:
+                continue
+
+            if symbol in self.cooldown:
+                if now - self.cooldown[symbol] < self.cooldown_seconds:
+                    continue
+
+            price = self.market.get_price(symbol)
+
+            if price is None:
+                continue
+
+            stop = price * 0.92
+
+            qty = self.position_sizer.calculate_qty(price)
+
+            risk = abs(price - stop) * qty
+
+            if not self.portfolio_risk.can_open_position(risk):
+                continue
+
+            self.execution.enter(symbol, qty, price, stop)
+
+    def monitor_positions(self):
+
+        for symbol, position in list(self.positions.items()):
+
+            price = self.market.get_price(symbol)
+
+            if price is None:
+                continue
+
+            stop = position["stop"]
+            entry = position["entry"]
+
+            self.logger.info(f"[MONITOR] {symbol} price={price} stop={stop}")
+
+            if price > entry:
+
+                new_stop = price * 0.95
+
+                if new_stop > stop:
+                    position["stop"] = new_stop
+
+            if price < position["stop"]:
+
+                self.logger.info(f"ATR STOP {symbol} entry={entry} price={price}")
+
+                self.execution.exit(symbol)
+
+                self.cooldown[symbol] = time.time()

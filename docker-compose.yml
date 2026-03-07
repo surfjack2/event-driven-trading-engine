@@ -1,13 +1,26 @@
 version: "3.9"
+
 services:
+
   kis-trader:
+
     build: .
+
     container_name: kis_trader
+
     restart: unless-stopped
+
     env_file:
       - .env
+
+    environment:
+      - TZ=Asia/Seoul
+
     volumes:
       - ./logs:/app/logs
       - ./config:/app/config
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
     stdin_open: true
     tty: true

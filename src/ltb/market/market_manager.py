@@ -1,6 +1,7 @@
-import time
-from collections import defaultdict
+import random
+
 from ltb.market.indicator_engine import IndicatorEngine
+
 
 class MarketManager:
 
@@ -8,92 +9,104 @@ class MarketManager:
 
         self.executor = executor
 
-        # 1초 캐시
-        self.cache_ttl = 1
+        self.indicator = IndicatorEngine()
 
-        # symbol → price
-        self.price_cache = {}
-
-        # symbol → timestamp
-        self.last_update = {}
-
-        # symbol → price history
-        self.price_history = defaultdict(list)
-
-        self.history_limit = 200
+        # symbol별 price history 저장
+        self.price_history = {}
 
     # ==========================
-    # PRICE 조회
+    # PRICE
     # ==========================
 
     def get_price(self, symbol):
 
-        now = time.time()
+        price = self.executor.get_price(symbol)
 
-        if symbol in self.last_update:
+        if symbol not in self.price_history:
+            self.price_history[symbol] = []
 
-            if now - self.last_update[symbol] < self.cache_ttl:
-                return self.price_cache[symbol]
+        self.price_history[symbol].append(price)
 
-        # API 호출
-        price = self.executor.get_price()
-
-        self.price_cache[symbol] = price
-        self.last_update[symbol] = now
-
-        self._update_history(symbol, price)
+        # history 길이 제한
+        if len(self.price_history[symbol]) > 500:
+            self.price_history[symbol].pop(0)
 
         return price
 
     # ==========================
-    # price history 업데이트
-    # ==========================
-
-    def _update_history(self, symbol, price):
-
-        history = self.price_history[symbol]
-
-        history.append(price)
-
-        if len(history) > self.history_limit:
-            history.pop(0)
-
-    # ==========================
-    # history 조회
+    # HISTORY
     # ==========================
 
     def get_history(self, symbol):
 
-        return self.price_history[symbol]
+        return self.price_history.get(symbol, [])
 
     # ==========================
-    # RSI 조회
+    # RSI
     # ==========================
 
-    def get_rsi(self, symbol):
+    def get_rsi(self, symbol, period=14):
 
-        history = self.price_history[symbol]
+        prices = self.get_history(symbol)
 
-        return IndicatorEngine.rsi(history)
+        if len(prices) < period + 1:
+            return None
 
+        return self.indicator.rsi(prices, period)
 
     # ==========================
-    # MACD 조회
+    # MACD
     # ==========================
 
     def get_macd(self, symbol):
 
-        history = self.price_history[symbol]
+        prices = self.get_history(symbol)
 
-        return IndicatorEngine.macd(history)
+        if len(prices) < 35:
+            return (None, None)
 
+        return self.indicator.macd(prices)
 
     # ==========================
-    # Stochastic 조회
+    # STOCHASTIC
     # ==========================
 
-    def get_stochastic(self, symbol):
+    def get_stochastic(self, symbol, period=14):
 
-        history = self.price_history[symbol]
+        prices = self.get_history(symbol)
 
-        return IndicatorEngine.stochastic(history)
+        if len(prices) < period:
+            return None
+
+        return self.indicator.stochastic(prices, period)
+
+    # ==========================
+    # ATR
+    # ==========================
+
+    def get_atr(self, symbol, period=14):
+
+        history = self.get_history(symbol)
+
+        if history is None or len(history) < period + 1:
+            return None
+
+        trs = []
+
+        for i in range(1, len(history)):
+
+            high = history[i]
+            low = history[i]
+            prev_close = history[i - 1]
+
+            tr = max(
+                high - low,
+                abs(high - prev_close),
+                abs(low - prev_close)
+            )
+
+            trs.append(tr)
+
+        atr = sum(trs[-period:]) / period
+
+        return atr
