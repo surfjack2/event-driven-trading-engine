@@ -1,6 +1,6 @@
 import time
 import traceback
-from app.engine import TradingEngine
+from ltb.core.trading_engine import TradingEngine
 
 def run_engine():
     engine = TradingEngine()
