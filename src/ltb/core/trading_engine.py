@@ -2,9 +2,10 @@ import json
 import time
 from ltb.execution.order_executor import OrderExecutor
 from ltb.portfolio.position import Position
+from ltb.portfolio.portfolio_manager import PortfolioManager
 from ltb.core.scheduler import EventScheduler
 from ltb.market.market_manager import MarketManager
-from ltb.strategy.strategy_engine import StrategyEngin
+from ltb.strategy.strategy_engine import StrategyEngine
 
 class TradingEngine:
     def __init__(self):
@@ -16,7 +17,7 @@ class TradingEngine:
         self.market = MarketManager(self.executor)
         self.strategy = StrategyEngine(self.market)
 
-        self.positions = {}
+        self.portfolio = PortfolioManager()
 
         self.scheduler = EventScheduler()
         self.scheduler.setup(self)
@@ -37,8 +38,12 @@ class TradingEngine:
         entry_price = buy["price"]
         stop_price = entry_price * 0.975
 
-        pos = Position(symbol, qty, entry_price, stop_price)
-        self.positions[symbol] = pos
+        pos = self.portfolio.open_position(
+        symbol,
+        qty,
+        entry_price,
+        stop_price
+    )
 
         print(f"Entered {symbol} at {entry_price}, stop at {stop_price}")
 
@@ -90,14 +95,15 @@ class TradingEngine:
         sell = self.executor.market_sell(symbol, qty)
         print(f"EXIT ({reason}):", sell)
 
-        del self.positions[symbol]
+        self.portfolio.close_position(symbol)
         self.last_exit_time = time.time()
 
     # ==========================
     # 포지션 체크
     # ==========================
     def check_positions(self, current_price):
-        for symbol, pos in list(self.positions.items()):
+
+        for symbol, pos in list(self.portfolio.get_positions().items()):
 
             now = time.time()
 
@@ -147,7 +153,7 @@ class TradingEngine:
 
         symbol = "005930"
 
-        if not self.positions:
+        if not self.portfolio.get_positions():
             if now - self.last_exit_time > self.reentry_cooldown:
 
                 if self.strategy.check_entry(symbol):
