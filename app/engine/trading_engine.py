@@ -4,7 +4,7 @@ from app.execution.order_executor import OrderExecutor
 from app.portfolio.position import Position
 from app.core.scheduler import EventScheduler
 from app.market.market_manager import MarketManager
-
+from app.strategy.strategy_engine import StrategyEngine
 
 class TradingEngine:
     def __init__(self):
@@ -12,7 +12,9 @@ class TradingEngine:
             self.settings = json.load(f)
 
         self.executor = OrderExecutor(self.settings)
+
         self.market = MarketManager(self.executor)
+        self.strategy = StrategyEngine(self.market)
 
         self.positions = {}
 
@@ -142,9 +144,14 @@ class TradingEngine:
 
         # 진입 로직
         now = time.time()
+
+        symbol = "005930"
+
         if not self.positions:
             if now - self.last_exit_time > self.reentry_cooldown:
-                self.enter_position("005930", 1)
+
+                if self.strategy.check_entry(symbol):
+                    self.enter_position(symbol, 1)
 
     # ==========================
     # Scheduler Events (placeholder)
