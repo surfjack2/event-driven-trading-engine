@@ -1,57 +1,70 @@
+import threading
 import time
-import multiprocessing
-from ltb.runtime.engine_process import run_engine
-from ltb.runtime.workers.market_worker import run_market_worker
-from ltb.runtime.workers.strategy_worker import run_strategy_worker
-from ltb.runtime.workers.risk_worker import run_risk_worker
-from ltb.runtime.workers.analytics_worker import run_analytics_worker
-from ltb.runtime.workers.alert_worker import run_alert_worker
+
+from ltb.runtime.queue_bus import QueueBus
+
+# 기존 workers
+from ltb.runtime.workers.market_worker import MarketWorker
+from ltb.runtime.workers.strategy_worker import StrategyWorker
+from ltb.runtime.workers.risk_worker import RiskWorker
+from ltb.runtime.workers.analytics_worker import AnalyticsWorker
+from ltb.runtime.workers.alert_worker import AlertWorker
+
+# 새 execution layer
+from ltb.runtime.workers.execution_worker import ExecutionWorker
+from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
+from ltb.runtime.workers.portfolio_worker import PortfolioWorker
+
+from ltb.system.logger import logger
 
 
-def start_process(target, name):
-    p = multiprocessing.Process(target=target, name=name)
-    p.start()
-    return p
+def start_worker(worker):
+
+    logger.info("[STARTING WORKER] %s", worker.__class__.__name__)
+
+    thread = threading.Thread(
+        target=worker.run,
+        daemon=True
+    )
+
+    thread.start()
+
+    return thread
 
 
 def main():
 
-    processes = {}
+    logger.info("=== LTB ENGINE PROCESS STARTED ===")
 
-    processes["engine"] = start_process(run_engine, "engine")
-    processes["market"] = start_process(run_market_worker, "market_worker")
-    processes["strategy"] = start_process(run_strategy_worker, "strategy_worker")
-    processes["risk"] = start_process(run_risk_worker, "risk_worker")
-    processes["analytics"] = start_process(run_analytics_worker, "analytics_worker")
-    processes["alert"] = start_process(run_alert_worker, "alert_worker")
+    bus = QueueBus()
+
+    workers = [
+
+        # market data
+        MarketWorker(bus),
+
+        # strategy
+        StrategyWorker(bus),
+
+        # execution layer
+        ExecutionWorker(bus),
+        OrderExecutorWorker(bus),
+
+        # portfolio
+        PortfolioWorker(bus),
+
+        # system workers
+        RiskWorker(bus),
+        AnalyticsWorker(bus),
+        AlertWorker(bus),
+    ]
+
+    threads = []
+
+    for worker in workers:
+        threads.append(start_worker(worker))
+
+    logger.info("=== ALL WORKERS STARTED ===")
 
     while True:
-
-        for name, proc in list(processes.items()):
-
-            if not proc.is_alive():
-                print(f"[WATCHDOG] {name} crashed. restarting...")
-
-                if name == "engine":
-                    processes[name] = start_process(run_engine, name)
-
-                elif name == "market":
-                    processes[name] = start_process(run_market_worker, name)
-
-                elif name == "strategy":
-                    processes[name] = start_process(run_strategy_worker, name)
-
-                elif name == "risk":
-                    processes[name] = start_process(run_risk_worker, name)
-
-                elif name == "analytics":
-                    processes[name] = start_process(run_analytics_worker, name)
-
-                elif name == "alert":
-                    processes[name] = start_process(run_alert_worker, name)
-
-        time.sleep(2)
-
-
-if __name__ == "__main__":
-    main()
+        time.sleep(5)

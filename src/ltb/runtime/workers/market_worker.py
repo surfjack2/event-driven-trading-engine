@@ -1,17 +1,35 @@
 import time
 import random
 
+from ltb.system.logger import logger
 
-def run_market_worker():
 
-    print("[MARKET WORKER STARTED]")
+class MarketWorker:
 
-    while True:
+    def __init__(self, bus):
+        self.bus = bus
 
-        # 실제 구현 시 KIS price API 호출
+    def run(self):
 
-        price = random.uniform(45000, 65000)
+        logger.info("[MARKET WORKER STARTED]")
 
-        print(f"[MARKET] price update {price}")
+        while True:
 
-        time.sleep(1)
+            price = random.uniform(45000, 65000)
+
+            event = {
+                "symbol": "TEST",
+                "price": price
+            }
+
+            self.bus.publish("market.price", event)
+
+            logger.info("[MARKET] pushed price %s", price)
+
+            time.sleep(1)
+
+
+def run_market_worker(bus):
+
+    worker = MarketWorker(bus)
+    worker.run()

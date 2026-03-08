@@ -1,12 +1,25 @@
 import time
 
+from ltb.system.logger import logger
 
-def run_alert_worker():
 
-    print("[ALERT WORKER STARTED]")
+class AlertWorker:
 
-    while True:
+    def __init__(self, bus):
+        self.bus = bus
 
-        print("[ALERT] monitoring events")
+    def run(self):
 
-        time.sleep(3)
+        logger.info("[ALERT WORKER STARTED]")
+
+        while True:
+
+            logger.info("[ALERT] monitoring events")
+
+            time.sleep(4)
+
+
+def run_alert_worker(bus):
+
+    worker = AlertWorker(bus)
+    worker.run()

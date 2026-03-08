@@ -10,7 +10,6 @@ logger = logging.getLogger("ltb_engine")
 
 logger.setLevel(logging.INFO)
 
-# ===== 기존 handler 제거 (중복 방지 핵심) =====
 if logger.hasHandlers():
     logger.handlers.clear()
 
@@ -18,9 +17,15 @@ formatter = logging.Formatter(
     "%(asctime)s [%(levelname)s] %(message)s"
 )
 
+# 파일 로그
 file_handler = logging.FileHandler(LOG_FILE)
 file_handler.setFormatter(formatter)
 
+# 콘솔 로그 (docker logs용)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+
 logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 logger.propagate = False

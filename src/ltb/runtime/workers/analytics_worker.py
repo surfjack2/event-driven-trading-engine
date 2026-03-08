@@ -1,12 +1,25 @@
 import time
 
+from ltb.system.logger import logger
 
-def run_analytics_worker():
 
-    print("[ANALYTICS WORKER STARTED]")
+class AnalyticsWorker:
 
-    while True:
+    def __init__(self, bus):
+        self.bus = bus
 
-        print("[ANALYTICS] updating stats")
+    def run(self):
 
-        time.sleep(5)
+        logger.info("[ANALYTICS WORKER STARTED]")
+
+        while True:
+
+            logger.info("[ANALYTICS] updating stats")
+
+            time.sleep(5)
+
+
+def run_analytics_worker(bus):
+
+    worker = AnalyticsWorker(bus)
+    worker.run()

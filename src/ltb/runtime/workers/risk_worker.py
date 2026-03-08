@@ -1,14 +1,25 @@
 import time
 
+from ltb.system.logger import logger
 
-def run_risk_worker():
 
-    print("[RISK WORKER STARTED]")
+class RiskWorker:
 
-    while True:
+    def __init__(self, bus):
+        self.bus = bus
 
-        # Kill switch / risk monitoring
+    def run(self):
 
-        print("[RISK] monitoring")
+        logger.info("[RISK WORKER STARTED]")
 
-        time.sleep(2)
+        while True:
+
+            logger.info("[RISK] monitoring")
+
+            time.sleep(3)
+
+
+def run_risk_worker(bus):
+
+    worker = RiskWorker(bus)
+    worker.run()

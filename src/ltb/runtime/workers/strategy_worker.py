@@ -1,14 +1,43 @@
 import time
 
+from ltb.system.logger import logger
 
-def run_strategy_worker():
 
-    print("[STRATEGY WORKER STARTED]")
+class StrategyWorker:
 
-    while True:
+    def __init__(self, bus):
 
-        # 실제 구현 시 전략 스캔 수행
+        self.bus = bus
 
-        print("[STRATEGY] scanning signals")
+        self.bus.subscribe("market.price", self.on_price)
 
-        time.sleep(2)
+    def run(self):
+
+        logger.info("[STRATEGY WORKER STARTED]")
+
+        while True:
+            time.sleep(1)
+
+    def on_price(self, data):
+
+        price = data["price"]
+
+        logger.info("[STRATEGY] received %s", price)
+
+        if price > 60000:
+
+            signal = {
+                "symbol": data["symbol"],
+                "action": "BUY",
+                "price": price
+            }
+
+            self.bus.publish("strategy.signal", signal)
+
+            logger.info("[STRATEGY] signal generated")
+
+
+def run_strategy_worker(bus):
+
+    worker = StrategyWorker(bus)
+    worker.run()
