@@ -1,8 +1,8 @@
 import time
 
 from ltb.system.logger import logger
-from ltb.risk.risk_engine import RiskEngine
-from ltb.risk.position_sizer import PositionSizer
+from ltb.runtime.position_sizer import PositionSizer
+from ltb.runtime.risk_engine import RiskEngine
 
 
 class ExecutionWorker:
@@ -11,12 +11,11 @@ class ExecutionWorker:
 
         self.bus = bus
 
-        self.risk = RiskEngine()
+        self.positions = {}
 
         self.sizer = PositionSizer()
 
-        # 현재 포지션 저장
-        self.positions = {}
+        self.risk = RiskEngine()
 
         self.bus.subscribe("strategy.signal", self.on_signal)
 
@@ -33,40 +32,42 @@ class ExecutionWorker:
 
     def on_portfolio_update(self, data):
 
-        symbol = data["symbol"]
-        position = data["position"]
-        price = data["price"]
+        symbol = data.get("symbol")
+        position = data.get("position", 0)
 
-        # 포지션 상태 업데이트
+        if symbol is None:
+            return
+
         self.positions[symbol] = position
-
-        self.risk.update_position(symbol, position, price)
 
 
     def on_signal(self, signal):
 
         logger.info("[EXECUTION] processing signal %s", signal)
 
-        symbol = signal["symbol"]
-        entry_price = signal["price"]
+        symbol = signal.get("symbol")
+        price = signal.get("price")
 
-        # 1️⃣ Position Gate
+        if symbol is None or price is None:
+            return
+
         position = self.positions.get(symbol, 0)
 
         if position > 0:
 
-            logger.info("[POSITION GATE] already holding %s position=%s", symbol, position)
+            logger.info(
+                "[POSITION GATE] already holding %s position=%s",
+                symbol,
+                position
+            )
 
             return
 
-        # stop price (임시 5%)
-        stop_price = entry_price * 0.95
+        qty = self.sizer.size(price)
 
-        # 2️⃣ position sizing
-        qty = self.sizer.calculate(entry_price, stop_price)
+        allowed = self.risk.check(symbol, qty, price)
 
-        # 3️⃣ risk check
-        if not self.risk.check(symbol, qty, entry_price):
+        if not allowed:
 
             logger.warning("[EXECUTION] order blocked by risk")
 
@@ -74,8 +75,8 @@ class ExecutionWorker:
 
         order = {
             "symbol": symbol,
-            "side": signal["action"],
-            "price": entry_price,
+            "side": "BUY",
+            "price": price,
             "qty": qty
         }
 

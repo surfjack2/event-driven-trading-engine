@@ -24,28 +24,32 @@ class PortfolioWorker:
 
     def on_fill(self, fill):
 
-        symbol = fill["symbol"]
+        symbol = fill.get("symbol")
+        qty = fill.get("qty", 0)
+        side = fill.get("side")
 
-        qty = fill["qty"]
+        if symbol is None:
+            return
 
-        price = fill["price"]
+        current = self.positions.get(symbol, 0)
 
-        if symbol not in self.positions:
-            self.positions[symbol] = 0
-
-        if fill["side"] == "BUY":
-            self.positions[symbol] += qty
+        if side == "BUY":
+            current += qty
         else:
-            self.positions[symbol] -= qty
+            current -= qty
 
-        position = self.positions[symbol]
+        self.positions[symbol] = current
 
-        logger.info("[PORTFOLIO] updated position %s = %s", symbol, position)
+        logger.info(
+            "[PORTFOLIO] updated position %s = %s",
+            symbol,
+            current
+        )
 
         event = {
             "symbol": symbol,
-            "position": position,
-            "price": price
+            "position": current,
+            "price": fill.get("price")
         }
 
         self.bus.publish("portfolio.update", event)
