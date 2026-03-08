@@ -28,8 +28,9 @@ class PortfolioWorker:
 
         qty = fill["qty"]
 
-        if symbol not in self.positions:
+        price = fill["price"]
 
+        if symbol not in self.positions:
             self.positions[symbol] = 0
 
         if fill["side"] == "BUY":
@@ -43,7 +44,8 @@ class PortfolioWorker:
 
         event = {
             "symbol": symbol,
-            "position": position
+            "position": position,
+            "price": price
         }
 
         self.bus.publish("portfolio.update", event)
