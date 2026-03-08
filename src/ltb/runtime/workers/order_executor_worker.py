@@ -1,6 +1,7 @@
 import time
 
 from ltb.system.logger import logger
+from ltb.execution.kis_executor import KISExecutor
 
 
 class OrderExecutorWorker:
@@ -9,26 +10,30 @@ class OrderExecutorWorker:
 
         self.bus = bus
 
+        self.executor = KISExecutor()
+
         self.bus.subscribe("order.request", self.execute)
+
 
     def run(self):
 
-        logger.info("[ORDER EXECUTOR STARTED]")
+        logger.info("[ORDER EXECUTOR WORKER STARTED]")
 
         while True:
             time.sleep(1)
+
 
     def execute(self, order):
 
         logger.info("[ORDER EXECUTOR] executing order %s", order)
 
-        fill = {
-            "symbol": order["symbol"],
-            "side": order["side"],
-            "price": order["price"],
-            "qty": order["qty"]
-        }
+        fill = self.executor.place_order(
+            symbol=order["symbol"],
+            side=order["side"],
+            qty=order["qty"],
+            price=order["price"]
+        )
 
         self.bus.publish("order.fill", fill)
 
-        logger.info("[ORDER EXECUTOR] order filled")
+        logger.info("[ORDER EXECUTOR] fill published")

@@ -13,6 +13,7 @@ class PortfolioWorker:
 
         self.bus.subscribe("order.fill", self.on_fill)
 
+
     def run(self):
 
         logger.info("[PORTFOLIO WORKER STARTED]")
@@ -20,11 +21,29 @@ class PortfolioWorker:
         while True:
             time.sleep(1)
 
+
     def on_fill(self, fill):
 
         symbol = fill["symbol"]
+
         qty = fill["qty"]
 
-        self.positions[symbol] = self.positions.get(symbol, 0) + qty
+        if symbol not in self.positions:
 
-        logger.info("[PORTFOLIO] updated position %s = %s", symbol, self.positions[symbol])
+            self.positions[symbol] = 0
+
+        if fill["side"] == "BUY":
+            self.positions[symbol] += qty
+        else:
+            self.positions[symbol] -= qty
+
+        position = self.positions[symbol]
+
+        logger.info("[PORTFOLIO] updated position %s = %s", symbol, position)
+
+        event = {
+            "symbol": symbol,
+            "position": position
+        }
+
+        self.bus.publish("portfolio.update", event)
