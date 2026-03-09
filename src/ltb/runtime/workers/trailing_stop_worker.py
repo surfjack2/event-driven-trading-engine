@@ -11,11 +11,10 @@ class TrailingStopWorker:
 
         self.positions = {}
 
-        self.last_prices = {}
-
         self.trail_percent = 0.05
 
         self.bus.subscribe("portfolio.update", self.on_position_update)
+
         self.bus.subscribe("market.price", self.on_price)
 
 
@@ -29,25 +28,15 @@ class TrailingStopWorker:
 
     def on_position_update(self, data):
 
-        symbol = data.get("symbol")
-        position = data.get("position", 0)
-
-        if symbol is None:
-            return
+        symbol = data["symbol"]
+        position = data["position"]
+        price = data["price"]
 
         if position <= 0:
 
-            if symbol in self.positions:
-                del self.positions[symbol]
+            # 포지션 제거 (안전 삭제)
+            self.positions.pop(symbol, None)
 
-            return
-
-        price = data.get("price")
-
-        if price is None:
-            price = self.last_prices.get(symbol)
-
-        if price is None:
             return
 
         if symbol not in self.positions:
@@ -70,21 +59,18 @@ class TrailingStopWorker:
 
     def on_price(self, event):
 
-        symbol = event.get("symbol")
-        price = event.get("price")
+        symbol = event["symbol"]
+        price = event["price"]
 
-        if symbol is None or price is None:
-            return
-
-        self.last_prices[symbol] = price
-
+        # 안전 접근 (KeyError 방지)
         pos = self.positions.get(symbol)
 
-        if pos is None:
+        if not pos:
             return
 
         stop = pos["stop"]
 
+        # stop 이동
         new_stop = price * (1 - self.trail_percent)
 
         if new_stop > stop:
@@ -97,6 +83,7 @@ class TrailingStopWorker:
                 new_stop
             )
 
+        # stop hit
         if price < pos["stop"]:
 
             logger.info(
@@ -115,4 +102,5 @@ class TrailingStopWorker:
 
             self.bus.publish("order.request", order)
 
-            del self.positions[symbol]
+            # 포지션 제거 (안전 삭제)
+            self.positions.pop(symbol, None)

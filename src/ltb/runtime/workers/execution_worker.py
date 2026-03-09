@@ -1,8 +1,6 @@
 import time
 
 from ltb.system.logger import logger
-from ltb.runtime.position_sizer import PositionSizer
-from ltb.runtime.risk_engine import RiskEngine
 
 
 class ExecutionWorker:
@@ -13,12 +11,7 @@ class ExecutionWorker:
 
         self.positions = {}
 
-        self.sizer = PositionSizer()
-
-        self.risk = RiskEngine()
-
         self.bus.subscribe("strategy.signal", self.on_signal)
-
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
 
@@ -32,28 +25,28 @@ class ExecutionWorker:
 
     def on_portfolio_update(self, data):
 
-        symbol = data.get("symbol")
-        position = data.get("position", 0)
+        symbol = data["symbol"]
+        position = data["position"]
 
-        if symbol is None:
-            return
+        if position <= 0:
 
-        self.positions[symbol] = position
+            self.positions.pop(symbol, None)
+
+        else:
+
+            self.positions[symbol] = position
 
 
     def on_signal(self, signal):
 
+        symbol = signal["symbol"]
+        price = signal["price"]
+
         logger.info("[EXECUTION] processing signal %s", signal)
 
-        symbol = signal.get("symbol")
-        price = signal.get("price")
+        position = self.positions.get(symbol)
 
-        if symbol is None or price is None:
-            return
-
-        position = self.positions.get(symbol, 0)
-
-        if position > 0:
+        if position:
 
             logger.info(
                 "[POSITION GATE] already holding %s position=%s",
@@ -63,21 +56,11 @@ class ExecutionWorker:
 
             return
 
-        qty = self.sizer.size(price)
-
-        allowed = self.risk.check(symbol, qty, price)
-
-        if not allowed:
-
-            logger.warning("[EXECUTION] order blocked by risk")
-
-            return
-
         order = {
             "symbol": symbol,
             "side": "BUY",
             "price": price,
-            "qty": qty
+            "qty": 1
         }
 
         self.bus.publish("order.request", order)
