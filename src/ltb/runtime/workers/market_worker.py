@@ -26,7 +26,7 @@ class MarketWorker:
 
             logger.info("[MARKET] pushed price %s", price)
 
-            time.sleep(1)
+            time.sleep(0.2)
 
 
 def run_market_worker(bus):

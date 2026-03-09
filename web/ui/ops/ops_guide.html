@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LTB Ops Guide</title>
+<style>
+body {
+    font-family: monospace;
+    padding: 30px;
+}
+pre {
+    background: #111;
+    color: #0f0;
+    padding: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>LTB Operations Guide</h1>
+
+<h2>Log Inspection Commands</h2>
+
+<pre>
+
+docker logs -f kis_trader
+
+docker logs --tail 100 kis_trader
+
+docker logs kis_trader | grep EXECUTION
+
+docker logs kis_trader | grep PORTFOLIO
+
+docker logs kis_trader | grep TRAIL
+
+tail -f logs/engine.log
+
+grep -E "ERROR|WARNING" logs/engine.log
+
+docker logs kis_trader 2>&1 | grep -E "ERROR|WARNING|BUS"
+
+</pre>
+
+</body>
+</html>
