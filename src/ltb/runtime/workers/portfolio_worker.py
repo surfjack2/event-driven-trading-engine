@@ -1,55 +1,52 @@
+import logging
 import time
 
-from ltb.system.logger import logger
+log = logging.getLogger(__name__)
 
 
 class PortfolioWorker:
 
-    def __init__(self, bus):
+    def __init__(self, event_bus):
 
-        self.bus = bus
-
+        self.event_bus = event_bus
         self.positions = {}
 
-        self.bus.subscribe("order.fill", self.on_fill)
-
+        # 이벤트 구독
+        self.event_bus.subscribe("ORDER_FILLED", self.handle_fill)
 
     def run(self):
 
-        logger.info("[PORTFOLIO WORKER STARTED]")
+        log.info("[PORTFOLIO WORKER STARTED]")
 
+        # worker thread 유지용 루프
         while True:
             time.sleep(1)
 
+    def handle_fill(self, fill):
 
-    def on_fill(self, fill):
+        symbol = fill["symbol"]
 
-        symbol = fill.get("symbol")
-        qty = fill.get("qty", 0)
-        side = fill.get("side")
+        if fill["action"] == "BUY":
 
-        if symbol is None:
-            return
+            position = {
+                "symbol": symbol,
+                "entry_price": fill["price"],
+                "qty": fill["qty"],
+                "highest_price": fill["price"],
+            }
 
-        current = self.positions.get(symbol, 0)
+            self.positions[symbol] = position
 
-        if side == "BUY":
-            current += qty
-        else:
-            current -= qty
+            self.event_bus.publish("POSITION_OPENED", position)
 
-        self.positions[symbol] = current
+            log.info(f"[PORTFOLIO] position opened {position}")
 
-        logger.info(
-            "[PORTFOLIO] updated position %s = %s",
-            symbol,
-            current
-        )
+        elif fill["action"] == "SELL":
 
-        event = {
-            "symbol": symbol,
-            "position": current,
-            "price": fill.get("price")
-        }
+            if symbol in self.positions:
 
-        self.bus.publish("portfolio.update", event)
+                pos = self.positions.pop(symbol)
+
+                self.event_bus.publish("POSITION_CLOSED", pos)
+
+                log.info(f"[PORTFOLIO] position closed {pos}")

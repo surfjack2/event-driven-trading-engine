@@ -4,6 +4,7 @@ import time
 from ltb.runtime.queue_bus import QueueBus
 
 from ltb.runtime.workers.market_worker import MarketWorker
+from ltb.indicator.indicator_worker import IndicatorWorker
 from ltb.runtime.workers.strategy_worker import StrategyWorker
 from ltb.runtime.workers.execution_worker import ExecutionWorker
 from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
@@ -34,22 +35,34 @@ def main():
 
     workers = [
 
+        # Market data source
         MarketWorker(bus),
 
+        # Indicator calculation layer
+        IndicatorWorker(bus),
+
+        # Strategy evaluation
         StrategyWorker(bus),
 
+        # Execution routing
         ExecutionWorker(bus),
 
+        # Order execution
         OrderExecutorWorker(bus),
 
+        # Portfolio state management
         PortfolioWorker(bus),
 
+        # Trailing stop logic
         TrailingStopWorker(bus),
 
+        # Risk control
         RiskWorker(bus),
 
+        # Analytics / metrics
         AnalyticsWorker(bus),
 
+        # Alert / notification
         AlertWorker(bus),
 
     ]

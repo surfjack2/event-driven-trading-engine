@@ -1,28 +1,31 @@
-import json
-from pathlib import Path
+import yaml
 
-from ltb.strategy.strategies.volume_breakout import VolumeBreakoutStrategy
+from ltb.strategy.simple_momentum_strategy import SimpleMomentumStrategy
 
 
 class StrategyLoader:
 
-    def __init__(self):
-
-        self.config_path = Path("config/strategies.json")
+    def __init__(self, config_path="config/strategies.yaml"):
+        self.config_path = config_path
 
     def load(self):
 
-        with open(self.config_path) as f:
-            config = json.load(f)
+        with open(self.config_path, "r") as f:
+            data = yaml.safe_load(f)
 
         strategies = []
 
-        if config.get("volume_breakout", {}).get("enabled"):
+        configs = data.get("strategies", {})
 
-            params = config["volume_breakout"]
+        for name, config in configs.items():
 
-            strategies.append(
-                VolumeBreakoutStrategy(params)
-            )
+            if not config.get("enabled", False):
+                continue
+
+            if name == "simple_momentum":
+
+                strategy = SimpleMomentumStrategy(config)
+
+                strategies.append(strategy)
 
         return strategies

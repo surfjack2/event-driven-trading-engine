@@ -1,62 +1,43 @@
 import logging
-from ltb.trade.trade_recorder import TradeRecorder
+import time
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class OrderExecutorWorker:
 
-    def __init__(self, bus, executor):
+    def __init__(self, event_bus):
 
-        self.bus = bus
-        self.executor = executor
+        self.event_bus = event_bus
+        self.queue = []
 
-        # Trade Recorder 추가
-        self.trade_recorder = TradeRecorder()
+        self.event_bus.subscribe("ORDER_REQUEST", self.enqueue)
 
-    def start(self):
+    def enqueue(self, order):
 
-        logger.info("[ORDER EXECUTOR WORKER STARTED]")
+        self.queue.append(order)
 
-        self.bus.subscribe("order_request", self.handle_order)
+    def run(self):
 
-    def handle_order(self, order):
+        log.info("[ORDER EXECUTOR WORKER STARTED]")
 
-        logger.info(f"[ORDER EXECUTOR] executing order {order}")
+        while True:
 
-        try:
+            if not self.queue:
+                time.sleep(0.05)
+                continue
 
-            symbol = order.get("symbol")
-            side = order.get("side")
-            price = order.get("price")
-            qty = order.get("qty", 1)
+            order = self.queue.pop(0)
 
-            # 실제 주문 실행
-            self.executor.place_order(
-                symbol=symbol,
-                side=side,
-                qty=qty,
-                price=price
-            )
+            log.info(f"[ORDER EXECUTOR] executing order {order}")
 
-            logger.info(f"[KIS] placing order {symbol} {side} qty={qty} price={price}")
+            filled = {
+                "symbol": order["symbol"],
+                "action": order["action"],
+                "price": order["price"],
+                "qty": order.get("qty", 1),
+            }
 
-            # 체결 처리 (현재는 즉시 체결 구조)
-            logger.info("[KIS] order filled")
+            self.event_bus.publish("ORDER_FILLED", filled)
 
-            # ==============================
-            # Trade 기록
-            # ==============================
-            self.trade_recorder.record_fill(order)
-
-            # ==============================
-            # Portfolio 이벤트 발행
-            # ==============================
-
-            self.bus.publish("order_filled", order)
-
-            logger.info("[ORDER EXECUTOR] fill published")
-
-        except Exception as e:
-
-            logger.error(f"[ORDER EXECUTOR ERROR] {e}")
+            log.info("[ORDER EXECUTOR] ORDER_FILLED published")

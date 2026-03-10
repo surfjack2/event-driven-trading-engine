@@ -1,106 +1,72 @@
+import logging
 import time
 
-from ltb.system.logger import logger
+log = logging.getLogger(__name__)
 
 
 class TrailingStopWorker:
 
-    def __init__(self, bus):
+    def __init__(self, event_bus):
 
-        self.bus = bus
-
+        self.event_bus = event_bus
         self.positions = {}
 
-        self.trail_percent = 0.05
+        # 5% trailing stop
+        self.trailing_pct = 0.05
 
-        self.bus.subscribe("portfolio.update", self.on_position_update)
-
-        self.bus.subscribe("market.price", self.on_price)
-
+        # 이벤트 구독
+        self.event_bus.subscribe("POSITION_OPENED", self.handle_position)
+        self.event_bus.subscribe("MARKET_TICK", self.handle_price)
 
     def run(self):
 
-        logger.info("[TRAILING STOP WORKER STARTED]")
+        log.info("[TRAILING STOP WORKER STARTED]")
 
         while True:
             time.sleep(1)
 
+    def handle_position(self, position):
 
-    def on_position_update(self, data):
+        symbol = position["symbol"]
 
-        symbol = data["symbol"]
-        position = data["position"]
-        price = data["price"]
+        self.positions[symbol] = position
 
-        if position <= 0:
+        log.info(f"[TRAILING] tracking {symbol}")
 
-            # 포지션 제거 (안전 삭제)
-            self.positions.pop(symbol, None)
+    def handle_price(self, tick):
 
-            return
+        symbol = tick["symbol"]
+        price = tick["price"]
 
         if symbol not in self.positions:
-
-            stop_price = price * (1 - self.trail_percent)
-
-            self.positions[symbol] = {
-                "entry": price,
-                "stop": stop_price,
-                "qty": position
-            }
-
-            logger.info(
-                "[TRAIL INIT] %s entry=%s stop=%s",
-                symbol,
-                price,
-                stop_price
-            )
-
-
-    def on_price(self, event):
-
-        symbol = event["symbol"]
-        price = event["price"]
-
-        # 안전 접근 (KeyError 방지)
-        pos = self.positions.get(symbol)
-
-        if not pos:
             return
 
-        stop = pos["stop"]
+        pos = self.positions[symbol]
 
-        # stop 이동
-        new_stop = price * (1 - self.trail_percent)
+        # 최고가 갱신
+        if price > pos["highest_price"]:
 
-        if new_stop > stop:
+            pos["highest_price"] = price
 
-            pos["stop"] = new_stop
+            log.info(f"[TRAILING] new high {price}")
 
-            logger.info(
-                "[TRAIL MOVE] %s new_stop=%s",
-                symbol,
-                new_stop
+        stop_price = pos["highest_price"] * (1 - self.trailing_pct)
+
+        log.info(
+            f"[TRAILING] price={price} high={pos['highest_price']} stop={stop_price}"
+        )
+
+        if price <= stop_price:
+
+            log.info(f"[TRAILING] STOP TRIGGERED {price}")
+
+            self.event_bus.publish(
+                "ORDER_REQUEST",
+                {
+                    "symbol": symbol,
+                    "action": "SELL",
+                    "price": price,
+                },
             )
 
-        # stop hit
-        if price < pos["stop"]:
-
-            logger.info(
-                "[TRAIL STOP HIT] %s price=%s stop=%s",
-                symbol,
-                price,
-                pos["stop"]
-            )
-
-            order = {
-                "symbol": symbol,
-                "side": "SELL",
-                "price": price,
-                "qty": pos["qty"]
-            }
-
-            self.bus.publish("order.request", order)
-
-            # 포지션 제거 (안전 삭제)
-            self.positions.pop(symbol, None)
+            del self.positions[symbol]

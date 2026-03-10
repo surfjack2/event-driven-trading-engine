@@ -1,52 +1,59 @@
-from ltb.system.logger import logger
+import time
 
-from ltb.strategy.strategy_engine import StrategyEngine
-from ltb.strategy.strategy_loader import StrategyLoader
+from ltb.system.logger import logger
 
 
 class StrategyWorker:
 
-    def __init__(self, bus):
+    def __init__(self, event_bus):
 
-        self.bus = bus
+        self.event_bus = event_bus
 
-        # Strategy Engine 생성
-        self.engine = StrategyEngine()
+        self.cooldown = 10
+        self.last_trade = None
 
-        # Strategy Loader로 전략 로딩
-        loader = StrategyLoader()
-        strategies = loader.load()
+        self.last_price = None
 
-        # Strategy Engine에 등록
-        for strategy in strategies:
-            self.engine.register(strategy)
-
-        # Market Event 구독
-        self.bus.subscribe(
-            "market.price",
-            self.on_market
-        )
+        self.event_bus.subscribe("market.indicator", self.on_market)
 
     def run(self):
 
-        logger.info("[STRATEGY WORKER STARTED]")
+        logger.info("[STRATEGY WORKER RUNNING]")
 
-    def on_market(self, event):
+        while True:
+            time.sleep(1)
 
-        price = event.get("price")
-        symbol = event.get("symbol")
+    def on_market(self, data):
 
-        logger.info("[STRATEGY] received %s", price)
+        price = data["price"]
 
-        # 전략 평가
-        signals = self.engine.evaluate(event)
+        now = time.time()
 
-        # 시그널 처리
-        for signal in signals:
+        if self.last_trade is not None:
 
-            logger.info("[STRATEGY] signal generated")
+            if now - self.last_trade < self.cooldown:
 
-            self.bus.publish(
-                "strategy.signal",
-                signal
+                logger.info("[STRATEGY] cooldown active")
+                return
+
+        if self.last_price is None:
+
+            self.last_price = price
+            return
+
+        if price < 54500 and price > self.last_price:
+
+            logger.info("[STRATEGY] BUY signal")
+
+            self.event_bus.publish(
+                "ORDER_REQUEST",
+                {
+                    "symbol": "TEST",
+                    "action": "BUY",
+                    "price": price,
+                },
             )
+
+            self.last_trade = now
+
+        self.last_price = price

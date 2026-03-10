@@ -1,57 +1,42 @@
+from ltb.system.logger import logger
+
+
 class StrategyEngine:
 
-    def __init__(self, market, portfolio=None):
+    def __init__(self):
 
-        self.market = market
-        self.portfolio = portfolio
+        self.strategies = []
 
-    # ==========================
-    # Entry 조건
-    # ==========================
-    def check_entry(self, symbol):
+    def register(self, strategy):
 
-        # ----------------------
-        # 포지션 보유 여부 체크
-        # ----------------------
+        self.strategies.append(strategy)
 
-        if self.portfolio:
+        logger.info(
+            "[STRATEGY ENGINE] registered %s",
+            strategy.__class__.__name__
+        )
 
-            pos = self.portfolio.get_position(symbol)
+    def evaluate(self, event):
 
-            if pos and pos > 0:
-                return False
+        signals = []
 
-        # ----------------------
-        # 시장 데이터 조회
-        # ----------------------
+        for strategy in self.strategies:
 
-        price = self.market.get_price(symbol)
+            try:
 
-        rsi = self.market.get_rsi(symbol)
-        macd = self.market.get_macd(symbol)
-        stoch = self.market.get_stochastic(symbol)
+                result = strategy.evaluate(event)
 
-        # 데이터 부족
-        if rsi is None or macd is None:
-            return False
+                if not result:
+                    continue
 
-        # ----------------------
-        # Trend Filter (Turtle)
-        # ----------------------
+                for signal in result:
+                    signals.append(signal)
 
-        trend_ok = rsi > 50
+            except Exception as e:
 
-        # ----------------------
-        # Momentum Filter (BNF)
-        # ----------------------
+                logger.error(
+                    "[STRATEGY ENGINE ERROR] %s",
+                    str(e)
+                )
 
-        momentum_ok = stoch is not None and stoch > 60
-
-        # ----------------------
-        # 최종 조건
-        # ----------------------
-
-        if trend_ok and momentum_ok:
-            return True
-
-        return False
+        return signals

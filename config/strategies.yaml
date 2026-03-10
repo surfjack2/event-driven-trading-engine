@@ -1,0 +1,23 @@
+strategies:
+
+  simple_momentum:
+
+    enabled: true
+
+    cooldown_seconds: 10
+
+    symbols:
+      - TEST
+
+    indicators:
+
+      rsi_threshold: 50
+      stochastic_threshold: 60
+
+    risk:
+
+      position_size: 1
+
+    trailing_stop:
+
+      percent: 5
