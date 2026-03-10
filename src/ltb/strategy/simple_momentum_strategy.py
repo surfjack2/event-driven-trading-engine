@@ -3,12 +3,26 @@ import random
 
 class SimpleMomentumStrategy:
 
-    def check_entry(self, symbol):
+    def __init__(self, config=None):
+
+        self.config = config or {}
+
+    def evaluate(self, event):
+
+        symbol = event.get("symbol")
+        price = event.get("price")
 
         # 확률 기반 시뮬레이션
-        return random.random() > 0.7
+        if random.random() > 0.7:
 
-    def calculate_stop(self, price):
+            signal = {
+                "symbol": symbol,
+                "action": "BUY",
+                "price": price,
+                "qty": 1,
+                "strategy": "simple_momentum"
+            }
 
-        # ATR 대신 간단한 8% stop
-        return price * 0.92
+            return [signal]
+
+        return []

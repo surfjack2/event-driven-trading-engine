@@ -1,40 +1,44 @@
+from ltb.system.logger import logger
+
+
 class StrategyEngine:
 
-    def __init__(self, market):
-        self.market = market
+    def __init__(self):
 
-    # ==========================
-    # Entry 조건
-    # ==========================
-    def check_entry(self, symbol):
+        self.strategies = []
 
-        price = self.market.get_price(symbol)
+        logger.info("[STRATEGY ENGINE INITIALIZED]")
 
-        rsi = self.market.get_rsi(symbol)
-        macd = self.market.get_macd(symbol)
-        stoch = self.market.get_stochastic(symbol)
 
-        # 데이터 부족
-        if rsi is None or macd is None:
-            return False
+    def register(self, strategy):
 
-        # ----------------------
-        # Trend Filter (Turtle)
-        # ----------------------
+        self.strategies.append(strategy)
 
-        trend_ok = rsi > 50
+        logger.info(
+            "[STRATEGY ENGINE] registered %s",
+            strategy.__class__.__name__
+        )
 
-        # ----------------------
-        # Momentum Filter (BNF)
-        # ----------------------
 
-        momentum_ok = stoch is not None and stoch > 60
+    def evaluate(self, event):
 
-        # ----------------------
-        # 최종 조건
-        # ----------------------
+        signals = []
 
-        if trend_ok and momentum_ok:
-            return True
+        for strategy in self.strategies:
 
-        return False
+            try:
+
+                result = strategy.evaluate(event)
+
+                if result:
+                    signals.extend(result)
+
+            except Exception as e:
+
+                logger.error(
+                    "[STRATEGY ENGINE ERROR] strategy=%s error=%s",
+                    strategy.__class__.__name__,
+                    e
+                )
+
+        return signals

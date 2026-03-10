@@ -18,7 +18,6 @@ class PortfolioWorker:
 
         log.info("[PORTFOLIO WORKER STARTED]")
 
-        # worker thread 유지용 루프
         while True:
             time.sleep(1)
 
@@ -37,9 +36,22 @@ class PortfolioWorker:
 
             self.positions[symbol] = position
 
+            # 먼저 로그
+            log.info(
+                f"[PORTFOLIO] OPEN symbol={symbol} qty={position['qty']} entry={position['entry_price']}"
+            )
+
+            # 포지션 오픈 이벤트
             self.event_bus.publish("POSITION_OPENED", position)
 
-            log.info(f"[PORTFOLIO] position opened {position}")
+            # ExecutionWorker 상태 업데이트
+            self.event_bus.publish(
+                "portfolio.update",
+                {
+                    "symbol": symbol,
+                    "position": position["qty"]
+                }
+            )
 
         elif fill["action"] == "SELL":
 
@@ -47,6 +59,19 @@ class PortfolioWorker:
 
                 pos = self.positions.pop(symbol)
 
+                # 먼저 로그
+                log.info(
+                    f"[PORTFOLIO] CLOSE symbol={symbol} qty={pos['qty']} entry={pos['entry_price']}"
+                )
+
+                # 포지션 종료 이벤트
                 self.event_bus.publish("POSITION_CLOSED", pos)
 
-                log.info(f"[PORTFOLIO] position closed {pos}")
+                # ExecutionWorker 상태 업데이트
+                self.event_bus.publish(
+                    "portfolio.update",
+                    {
+                        "symbol": symbol,
+                        "position": 0
+                    }
+                )

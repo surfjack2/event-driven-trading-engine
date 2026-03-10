@@ -1,6 +1,8 @@
 import time
 
 from ltb.system.logger import logger
+from ltb.risk.risk_engine import RiskEngine
+from ltb.risk.position_sizer import PositionSizer
 
 
 class ExecutionWorker:
@@ -10,6 +12,9 @@ class ExecutionWorker:
         self.bus = bus
 
         self.positions = {}
+
+        self.risk = RiskEngine()
+        self.sizer = PositionSizer()
 
         self.bus.subscribe("strategy.signal", self.on_signal)
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
@@ -36,6 +41,8 @@ class ExecutionWorker:
 
             self.positions[symbol] = position
 
+        self.risk.update_position(symbol, position, 0)
+
 
     def on_signal(self, signal):
 
@@ -56,11 +63,21 @@ class ExecutionWorker:
 
             return
 
+        stop_price = price * 0.92
+
+        qty = self.sizer.calculate(price, stop_price)
+
+        if not self.risk.check(symbol, qty, price):
+
+            logger.warning("[EXECUTION] risk engine blocked order")
+
+            return
+
         order = {
             "symbol": symbol,
             "side": "BUY",
             "price": price,
-            "qty": 1
+            "qty": qty
         }
 
         self.bus.publish("order.request", order)

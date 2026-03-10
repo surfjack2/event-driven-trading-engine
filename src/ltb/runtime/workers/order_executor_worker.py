@@ -1,7 +1,5 @@
-import logging
+from ltb.system.logger import logger
 import time
-
-log = logging.getLogger(__name__)
 
 
 class OrderExecutorWorker:
@@ -11,15 +9,17 @@ class OrderExecutorWorker:
         self.event_bus = event_bus
         self.queue = []
 
-        self.event_bus.subscribe("ORDER_REQUEST", self.enqueue)
+        self.event_bus.subscribe("order.request", self.enqueue)
 
     def enqueue(self, order):
 
         self.queue.append(order)
 
+        logger.info(f"[ORDER EXECUTOR] queued order {order}")
+
     def run(self):
 
-        log.info("[ORDER EXECUTOR WORKER STARTED]")
+        logger.info("[ORDER EXECUTOR WORKER STARTED]")
 
         while True:
 
@@ -29,15 +29,15 @@ class OrderExecutorWorker:
 
             order = self.queue.pop(0)
 
-            log.info(f"[ORDER EXECUTOR] executing order {order}")
+            logger.info(f"[ORDER EXECUTOR] executing order {order}")
 
             filled = {
                 "symbol": order["symbol"],
-                "action": order["action"],
+                "action": order["side"],
                 "price": order["price"],
                 "qty": order.get("qty", 1),
             }
 
             self.event_bus.publish("ORDER_FILLED", filled)
 
-            log.info("[ORDER EXECUTOR] ORDER_FILLED published")
+            logger.info("[ORDER EXECUTOR] ORDER_FILLED published")
