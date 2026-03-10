@@ -1,6 +1,7 @@
-import time
-
 from ltb.system.logger import logger
+
+from ltb.strategy.strategy_engine import StrategyEngine
+from ltb.strategy.strategy_loader import StrategyLoader
 
 
 class StrategyWorker:
@@ -9,35 +10,43 @@ class StrategyWorker:
 
         self.bus = bus
 
-        self.bus.subscribe("market.price", self.on_price)
+        # Strategy Engine 생성
+        self.engine = StrategyEngine()
+
+        # Strategy Loader로 전략 로딩
+        loader = StrategyLoader()
+        strategies = loader.load()
+
+        # Strategy Engine에 등록
+        for strategy in strategies:
+            self.engine.register(strategy)
+
+        # Market Event 구독
+        self.bus.subscribe(
+            "market.price",
+            self.on_market
+        )
 
     def run(self):
 
         logger.info("[STRATEGY WORKER STARTED]")
 
-        while True:
-            time.sleep(1)
+    def on_market(self, event):
 
-    def on_price(self, data):
-
-        price = data["price"]
+        price = event.get("price")
+        symbol = event.get("symbol")
 
         logger.info("[STRATEGY] received %s", price)
 
-        if price > 60000:
+        # 전략 평가
+        signals = self.engine.evaluate(event)
 
-            signal = {
-                "symbol": data["symbol"],
-                "action": "BUY",
-                "price": price
-            }
-
-            self.bus.publish("strategy.signal", signal)
+        # 시그널 처리
+        for signal in signals:
 
             logger.info("[STRATEGY] signal generated")
 
-
-def run_strategy_worker(bus):
-
-    worker = StrategyWorker(bus)
-    worker.run()
+            self.bus.publish(
+                "strategy.signal",
+                signal
+            )

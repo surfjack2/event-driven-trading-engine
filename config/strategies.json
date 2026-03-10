@@ -1,0 +1,7 @@
+{
+  "volume_breakout": {
+    "enabled": true,
+    "breakout_price": 64000,
+    "position_size": 1
+  }
+}

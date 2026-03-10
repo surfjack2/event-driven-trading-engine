@@ -1,47 +1,57 @@
-from ltb.system.logger import logger
-
-
 class StrategyEngine:
 
-    def __init__(self):
+    def __init__(self, market, portfolio=None):
 
-        self.strategies = []
+        self.market = market
+        self.portfolio = portfolio
 
-    # ---------------------------
-    # 전략 등록
-    # ---------------------------
-    def register(self, strategy):
+    # ==========================
+    # Entry 조건
+    # ==========================
+    def check_entry(self, symbol):
 
-        logger.info(
-            "[STRATEGY ENGINE] register %s",
-            strategy.name
-        )
+        # ----------------------
+        # 포지션 보유 여부 체크
+        # ----------------------
 
-        self.strategies.append(strategy)
+        if self.portfolio:
 
-    # ---------------------------
-    # 전략 평가
-    # ---------------------------
-    def evaluate(self, event):
+            pos = self.portfolio.get_position(symbol)
 
-        signals = []
+            if pos and pos > 0:
+                return False
 
-        for strategy in self.strategies:
+        # ----------------------
+        # 시장 데이터 조회
+        # ----------------------
 
-            try:
+        price = self.market.get_price(symbol)
 
-                signal = strategy.evaluate(event)
+        rsi = self.market.get_rsi(symbol)
+        macd = self.market.get_macd(symbol)
+        stoch = self.market.get_stochastic(symbol)
 
-                if signal:
+        # 데이터 부족
+        if rsi is None or macd is None:
+            return False
 
-                    signals.append(signal)
+        # ----------------------
+        # Trend Filter (Turtle)
+        # ----------------------
 
-            except Exception as e:
+        trend_ok = rsi > 50
 
-                logger.error(
-                    "[STRATEGY ERROR] %s %s",
-                    strategy.name,
-                    str(e)
-                )
+        # ----------------------
+        # Momentum Filter (BNF)
+        # ----------------------
 
-        return signals
+        momentum_ok = stoch is not None and stoch > 60
+
+        # ----------------------
+        # 최종 조건
+        # ----------------------
+
+        if trend_ok and momentum_ok:
+            return True
+
+        return False
