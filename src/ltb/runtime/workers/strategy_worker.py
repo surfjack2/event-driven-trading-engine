@@ -1,59 +1,52 @@
-import time
-
 from ltb.system.logger import logger
+
+from ltb.strategy.strategy_engine import StrategyEngine
+from ltb.strategy.strategy_loader import StrategyLoader
 
 
 class StrategyWorker:
 
-    def __init__(self, event_bus):
+    def __init__(self, bus):
 
-        self.event_bus = event_bus
+        self.bus = bus
 
-        self.cooldown = 10
-        self.last_trade = None
+        # Strategy Engine 생성
+        self.engine = StrategyEngine()
 
-        self.last_price = None
+        # Strategy Loader로 전략 로딩
+        loader = StrategyLoader()
+        strategies = loader.load()
 
-        self.event_bus.subscribe("market.indicator", self.on_market)
+        # Strategy Engine에 등록
+        for strategy in strategies:
+            self.engine.register(strategy)
+
+        # Market Event 구독
+        self.bus.subscribe(
+            "market.price",
+            self.on_market
+        )
 
     def run(self):
 
-        logger.info("[STRATEGY WORKER RUNNING]")
+        logger.info("[STRATEGY WORKER STARTED]")
 
-        while True:
-            time.sleep(1)
+    def on_market(self, event):
 
-    def on_market(self, data):
+        price = event.get("price")
+        symbol = event.get("symbol")
 
-        price = data["price"]
+        logger.info("[STRATEGY] received %s", price)
 
-        now = time.time()
+        # 전략 평가
+        signals = self.engine.evaluate(event)
 
-        if self.last_trade is not None:
+        # 시그널 처리
+        for signal in signals:
 
-            if now - self.last_trade < self.cooldown:
+            logger.info("[STRATEGY] signal generated")
 
-                logger.info("[STRATEGY] cooldown active")
-                return
-
-        if self.last_price is None:
-
-            self.last_price = price
-            return
-
-        if price < 54500 and price > self.last_price:
-
-            logger.info("[STRATEGY] BUY signal")
-
-            self.event_bus.publish(
-                "ORDER_REQUEST",
-                {
-                    "symbol": "TEST",
-                    "action": "BUY",
-                    "price": price,
-                },
+            self.bus.publish(
+                "strategy.signal",
+                signal
             )
-
-            self.last_trade = now
-
-        self.last_price = price
