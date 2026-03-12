@@ -1,55 +1,110 @@
 ============================================================
 LTB STRATEGY SPEC PACKAGE
+Author: System Design Spec
+Purpose: Live Trading Bot (LTB) Institutional Intraday Strategy
 ============================================================
 
 [STRATEGY 1]
-
 NAME
 OPENING_RANGE_BREAKOUT
 
 CATEGORY
-Breakout
+Momentum / Breakout
 
 TIMEFRAME
-5m
+1m ~ 5m
 
 OBJECTIVE
-Capture early momentum by trading breakouts of the opening range.
+Capture institutional breakout momentum after the opening
+range is established in the first minutes of market open.
+
+This strategy exploits early session volatility and
+institutional liquidity entering the market.
 
 ------------------------------------------------------------
 INDICATOR REQUIREMENTS
 ------------------------------------------------------------
 
-OPENING_RANGE
+OPENING RANGE
 
-first 15 minutes high and low
-
-VOLUME
-
-volume confirmation
-
-------------------------------------------------------------
-SIGNAL CONDITIONS
-------------------------------------------------------------
-
-STEP1_DEFINE_RANGE
+Opening range is defined as the price range during the
+first 5 minutes after market open.
 
 opening_high
 opening_low
 
 
-STEP2_BREAKOUT
+VWAP
 
-breakout_up =
+VWAP = Σ(price * volume) / Σ(volume)
+
+Used to confirm institutional bias.
+
+Only long trades when price > VWAP.
+
+
+VOLUME_MA
+
+moving average of volume
+
+period = 20 candles
+
+
+ATR
+
+Average True Range
+
+Used for stop loss sizing and volatility filter.
+
+period = 14
+
+
+------------------------------------------------------------
+SIGNAL CONDITIONS
+------------------------------------------------------------
+
+STEP1_OPENING_RANGE_BUILD
+
+During market open
+
+09:00 ~ 09:05
+
+Track
+
+opening_high
+opening_low
+
+
+STEP2_RANGE_COMPLETION
+
+After 09:05
+
+Opening range becomes fixed.
+
+
+STEP3_BREAKOUT_DETECTION
+
+breakout =
+
 price > opening_high
 
-breakout_down =
-price < opening_low
+
+STEP4_VOLUME_CONFIRMATION
+
+volume > volume_ma
 
 
-STEP3_VOLUME_CONFIRMATION
+STEP5_VWAP_FILTER
 
-volume > volume_ma * 1.5
+price > vwap
+
+
+STEP6_ATR_EXPANSION
+
+ATR increasing compared to previous periods
+
+ATR expansion confirms volatility expansion.
+
 
 ------------------------------------------------------------
 ENTRY LOGIC
@@ -57,13 +112,21 @@ ENTRY LOGIC
 
 IF
 
+time >= 09:05
+AND
 price > opening_high
 AND
-volume_confirmation
+volume > volume_ma
+AND
+price > vwap
+AND
+ATR expanding
 
 THEN
 
 signal = BUY
+order_type = MARKET
+
 
 ------------------------------------------------------------
 EXIT LOGIC
@@ -71,62 +134,146 @@ EXIT LOGIC
 
 STOP LOSS
 
-below opening_high
+entry_price - (ATR * 1.5)
+
 
 TAKE PROFIT
 
-entry_price * 1.03
+entry_price + (ATR * 3)
+
+
+VWAP EXIT
+
+exit if price falls below VWAP
+
 
 TIME EXIT
 
-max_holding_time = 60 minutes
+exit if position duration > 60 minutes
+
 
 ------------------------------------------------------------
 RISK MANAGEMENT
 ------------------------------------------------------------
 
-risk_per_trade = 1%
+risk_per_trade = 0.5% account
 
 max_positions = 3
+
+max_daily_loss = 3% account
+
+
+position_size
+
+(account_equity * risk_per_trade) / stop_distance
+
 
 ------------------------------------------------------------
 MARKET FILTER
 ------------------------------------------------------------
 
-ignore low volume stocks
+ignore if
+
+volume < liquidity_threshold
+
+or
+
+market volatility too low
+
+
+recommended universe
+
+top 100~200 volume stocks
+
 
 ------------------------------------------------------------
 WORKER INTEGRATION
 ------------------------------------------------------------
 
-market_data_worker
-indicator_engine
-strategy_signal_worker
-risk_manager
+market_worker
+    ↓
+
+indicator_worker
+    ↓
+
+scanner_worker
+    ↓
+
+universe_scanner_worker
+    ↓
+
+strategy_worker
+    ↓
+
+strategy_allocation_worker
+    ↓
+
 execution_worker
+    ↓
+
+order_executor_worker
+
 
 ------------------------------------------------------------
 PSEUDOCODE
 ------------------------------------------------------------
 
-range = first_15min_range()
+for symbol in universe:
 
-if price > range.high:
+    if time < 09:05:
 
-    signal = BUY
+        update_opening_range()
+
+    else:
+
+        breakout = price > opening_high
+
+        volume_confirm =
+            volume > volume_ma
+
+        vwap_confirm =
+            price > vwap
+
+        atr_expansion =
+            atr_current > atr_previous
+
+        if breakout
+        and volume_confirm
+        and vwap_confirm
+        and atr_expansion:
+
+            signal = BUY
+
 
 ------------------------------------------------------------
 BACKTEST REQUIREMENTS
 ------------------------------------------------------------
 
-profit_factor > 1.5
+metrics
+
+win_rate
+profit_factor
+max_drawdown
+avg_holding_time
+expectancy
+
+
+recommended baseline
+
+win_rate > 45%
+profit_factor > 1.7
+
 
 ------------------------------------------------------------
 KNOWN WEAKNESSES
 ------------------------------------------------------------
 
-fake breakouts
-sideways markets
+false breakout during low liquidity
+
+range fakeouts during news spikes
+
+midday low volatility
+
 
 ------------------------------------------------------------
 STRATEGY TAG
@@ -134,8 +281,8 @@ STRATEGY TAG
 
 type = intraday
 style = breakout
-execution = market
-timeframe = 5m
+execution = momentum
+timeframe = 1m ~ 5m
 
 ============================================================
 END OF STRATEGY SPEC
