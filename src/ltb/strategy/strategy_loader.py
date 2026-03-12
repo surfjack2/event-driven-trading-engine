@@ -2,6 +2,7 @@ import yaml
 
 from ltb.strategy.simple_momentum_strategy import SimpleMomentumStrategy
 from ltb.strategy.strategies.vwap_reclaim_band import VWAPReclaimBandStrategy
+from ltb.strategy.strategies.vwap_band_bounce import VWAPBandBounceStrategy
 
 
 class StrategyLoader:
@@ -40,6 +41,16 @@ class StrategyLoader:
             elif name == "vwap_reclaim_band":
 
                 strategy = VWAPReclaimBandStrategy(config)
+
+                strategies.append(strategy)
+
+            # --------------------------
+            # VWAP Band Bounce Strategy
+            # --------------------------
+
+            elif name == "vwap_band_bounce":
+
+                strategy = VWAPBandBounceStrategy(config)
 
                 strategies.append(strategy)
 

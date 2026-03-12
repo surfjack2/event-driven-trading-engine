@@ -38,3 +38,20 @@ strategies:
     risk:
 
       position_size: 1
+
+
+  vwap_band_bounce:
+
+    enabled: true
+
+    symbols:
+      - TEST
+
+    indicators:
+
+      vwap_band_std: 2
+      volume_ma_period: 20
+
+    risk:
+
+      position_size: 1
