@@ -1,7 +1,5 @@
-import logging
 import time
-
-log = logging.getLogger(__name__)
+from ltb.system.logger import logger
 
 
 class PortfolioWorker:
@@ -12,14 +10,20 @@ class PortfolioWorker:
         self.positions = {}
 
         # 이벤트 구독
-        self.event_bus.subscribe("ORDER_FILLED", self.handle_fill)
+        self.event_bus.subscribe(
+            "ORDER_FILLED",
+            self.handle_fill
+        )
 
         # Kill Switch 청산 이벤트
-        self.event_bus.subscribe("risk.close_all", self.handle_close_all)
+        self.event_bus.subscribe(
+            "risk.close_all",
+            self.handle_close_all
+        )
 
     def run(self):
 
-        log.info("[PORTFOLIO WORKER STARTED]")
+        logger.info("[PORTFOLIO WORKER STARTED]")
 
         while True:
             time.sleep(1)
@@ -28,6 +32,10 @@ class PortfolioWorker:
 
         symbol = fill["symbol"]
         strategy = fill.get("strategy")
+
+        # ------------------------
+        # BUY 체결
+        # ------------------------
 
         if fill["action"] == "BUY":
 
@@ -41,12 +49,17 @@ class PortfolioWorker:
 
             self.positions[symbol] = position
 
-            log.info(
+            logger.info(
                 f"[PORTFOLIO] OPEN symbol={symbol} qty={position['qty']} entry={position['entry_price']}"
             )
 
-            self.event_bus.publish("POSITION_OPENED", position)
+            # 포지션 오픈 이벤트
+            self.event_bus.publish(
+                "POSITION_OPENED",
+                position
+            )
 
+            # 포트폴리오 상태 업데이트
             self.event_bus.publish(
                 "portfolio.update",
                 {
@@ -54,6 +67,10 @@ class PortfolioWorker:
                     "position": position["qty"]
                 }
             )
+
+        # ------------------------
+        # SELL 체결
+        # ------------------------
 
         elif fill["action"] == "SELL":
 
@@ -72,12 +89,17 @@ class PortfolioWorker:
                     "strategy": pos.get("strategy")
                 }
 
-                log.info(
+                logger.info(
                     f"[PORTFOLIO] CLOSE symbol={symbol} qty={pos['qty']} pnl={pnl}"
                 )
 
-                self.event_bus.publish("POSITION_CLOSED", trade)
+                # 포지션 종료 이벤트
+                self.event_bus.publish(
+                    "POSITION_CLOSED",
+                    trade
+                )
 
+                # 포트폴리오 상태 업데이트
                 self.event_bus.publish(
                     "portfolio.update",
                     {
@@ -90,7 +112,9 @@ class PortfolioWorker:
 
         reason = data.get("reason")
 
-        log.error(f"[PORTFOLIO] CLOSE ALL POSITIONS reason={reason}")
+        logger.error(
+            f"[PORTFOLIO] CLOSE ALL POSITIONS reason={reason}"
+        )
 
         for symbol, pos in list(self.positions.items()):
 
@@ -107,6 +131,6 @@ class PortfolioWorker:
                 }
             )
 
-            log.error(
+            logger.error(
                 f"[PORTFOLIO] emergency sell symbol={symbol} qty={qty}"
             )

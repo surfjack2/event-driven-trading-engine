@@ -1,6 +1,6 @@
 class UniverseBuilder:
 
-    def __init__(self, size=200):
+    def __init__(self, size=50):
 
         self.size = size
 

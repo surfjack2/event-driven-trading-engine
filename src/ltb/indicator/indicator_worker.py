@@ -1,3 +1,5 @@
+import time
+
 from ltb.system.logger import logger
 from ltb.indicator.indicator_engine import IndicatorEngine
 
@@ -17,6 +19,10 @@ class IndicatorWorker:
     def run(self):
 
         logger.info("[INDICATOR WORKER STARTED]")
+
+        # watchdog restart 방지
+        while True:
+            time.sleep(1)
 
     def on_price(self, event):
 
@@ -53,7 +59,7 @@ class IndicatorWorker:
             "vwap_lower": lower
         }
 
-        logger.info(
+        logger.debug(
             "[INDICATOR] %s price=%s vwap=%s volume=%s",
             symbol,
             price,

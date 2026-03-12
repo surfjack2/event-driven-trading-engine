@@ -11,8 +11,8 @@ class StrategyWorker:
 
         self.engine = StrategyEngine()
 
-        # 현재 거래 가능 종목
         self.universe = set()
+        self.rankings = set()
 
         loader = StrategyLoader()
         strategies = loader.load()
@@ -20,16 +20,19 @@ class StrategyWorker:
         for strategy in strategies:
             self.engine.register(strategy)
 
-        # indicator 이벤트 구독
         self.bus.subscribe(
             "market.indicator",
             self.on_market
         )
 
-        # universe 업데이트
         self.bus.subscribe(
             "market.universe",
             self.on_universe
+        )
+
+        self.bus.subscribe(
+            "market.ranking",
+            self.on_ranking
         )
 
     def run(self):
@@ -50,22 +53,38 @@ class StrategyWorker:
                 f"[STRATEGY] universe updated size={len(self.universe)}"
             )
 
+    def on_ranking(self, data):
+
+        symbols = data.get("symbols", [])
+
+        new_rank = set(symbols)
+
+        if new_rank != self.rankings:
+
+            self.rankings = new_rank
+
+            logger.info(
+                f"[STRATEGY] ranking updated size={len(self.rankings)}"
+            )
+
     def on_market(self, event):
 
         symbol = event.get("symbol")
         price = event.get("price")
 
-        # 데이터 검증
         if symbol is None or price is None:
+            return
+
+        # ranking 아직 없으면 거래 금지
+        if not self.rankings:
+            return
+
+        if symbol not in self.rankings:
             return
 
         # universe 필터
         if self.universe and symbol not in self.universe:
             return
-
-        logger.debug(
-            f"[STRATEGY] evaluating symbol={symbol} price={price}"
-        )
 
         signals = self.engine.evaluate(event)
 

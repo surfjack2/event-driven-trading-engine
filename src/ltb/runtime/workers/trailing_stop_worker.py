@@ -9,7 +9,7 @@ class TrailingStopWorker:
         self.event_bus = event_bus
         self.positions = {}
 
-        self.trailing_pct = 0.01
+        self.trailing_pct = 0.03
 
         self.event_bus.subscribe("POSITION_OPENED", self.handle_position)
         self.event_bus.subscribe("POSITION_CLOSED", self.handle_close)

@@ -7,20 +7,22 @@ from ltb.risk.position_sizer import PositionSizer
 
 class ExecutionWorker:
 
+    MAX_GLOBAL_POSITIONS = 5
+
     def __init__(self, bus):
 
         self.bus = bus
 
         self.positions = {}
+        self.pending_orders = set()
 
         self.risk = RiskEngine()
         self.sizer = PositionSizer()
 
-        # 전략 allocation 이후 이벤트 수신
+        self.last_signal_time = {}
+
         self.bus.subscribe("allocation.signal", self.on_signal)
-
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
-
 
     def run(self):
 
@@ -28,7 +30,6 @@ class ExecutionWorker:
 
         while True:
             time.sleep(1)
-
 
     def on_portfolio_update(self, data):
 
@@ -43,8 +44,7 @@ class ExecutionWorker:
 
             self.positions[symbol] = position
 
-        self.risk.update_position(symbol, position, 0)
-
+        self.pending_orders.discard(symbol)
 
     def on_signal(self, signal):
 
@@ -52,16 +52,27 @@ class ExecutionWorker:
         price = signal["price"]
         strategy = signal.get("strategy")
 
-        logger.info("[EXECUTION] processing signal %s", signal)
+        now = time.time()
+        last = self.last_signal_time.get(symbol, 0)
 
-        position = self.positions.get(symbol)
+        if now - last < 5:
+            return
 
-        if position:
+        self.last_signal_time[symbol] = now
+
+        if symbol in self.positions or symbol in self.pending_orders:
 
             logger.info(
-                "[POSITION GATE] already holding %s position=%s",
-                symbol,
-                position
+                "[POSITION GATE] already holding or pending %s",
+                symbol
+            )
+
+            return
+
+        if len(self.positions) >= self.MAX_GLOBAL_POSITIONS:
+
+            logger.warning(
+                "[EXECUTION] global position limit reached"
             )
 
             return
@@ -83,6 +94,8 @@ class ExecutionWorker:
             "qty": qty,
             "strategy": strategy
         }
+
+        self.pending_orders.add(symbol)
 
         self.bus.publish("order.request", order)
 

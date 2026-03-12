@@ -29,37 +29,30 @@ class MarketWorker:
 
         while True:
 
-            for symbol in self.universe:
+            symbol = random.choice(self.universe)
 
-                move = random.uniform(-200, 200)
+            move = random.uniform(-200, 200)
 
-                self.prices[symbol] += move
+            self.prices[symbol] += move
 
-                price = float(self.prices[symbol])
+            price = float(self.prices[symbol])
 
-                volume = random.randint(1000, 10000)
+            volume = random.randint(1000, 10000)
 
-                event = {
-                    "symbol": symbol,
-                    "price": price,
-                    "volume": volume,
-                    "prev_price": self.prev_prices[symbol],
-                }
+            event = {
+                "symbol": symbol,
+                "price": price,
+                "volume": volume,
+                "prev_price": self.prev_prices[symbol],
+            }
 
-                self.event_bus.publish(
-                    "market.price",
-                    event,
-                )
+            self.event_bus.publish("market.price", event)
+            self.event_bus.publish("MARKET_TICK", event)
 
-                self.event_bus.publish(
-                    "MARKET_TICK",
-                    event,
-                )
+            logger.debug(
+                f"[MARKET] {symbol} price={price} volume={volume}"
+            )
 
-                logger.debug(
-                    f"[MARKET] {symbol} price={price} volume={volume}"
-                )
+            self.prev_prices[symbol] = price
 
-                self.prev_prices[symbol] = price
-
-            time.sleep(0.2)
+            time.sleep(0.02)

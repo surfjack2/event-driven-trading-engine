@@ -20,11 +20,25 @@ class RiskEngine:
 
     def update_position(self, symbol, position, price):
 
-        self.open_positions[symbol] = position
+        # 포지션 종료 시 제거
+        if position <= 0:
 
+            if symbol in self.open_positions:
+                del self.open_positions[symbol]
+
+        else:
+
+            self.open_positions[symbol] = {
+                "qty": position,
+                "price": price
+            }
+
+        # capital 재계산
         total = 0
-        for s, pos in self.open_positions.items():
-            total += pos * price
+
+        for pos in self.open_positions.values():
+
+            total += pos["qty"] * pos["price"]
 
         self.used_capital = total
 
@@ -36,6 +50,7 @@ class RiskEngine:
 
     def check(self, symbol, qty, price):
 
+        # 신규 포지션 제한
         if symbol not in self.open_positions:
 
             if len(self.open_positions) >= self.max_open_positions:
@@ -43,7 +58,10 @@ class RiskEngine:
                 logger.warning("[RISK BLOCK] max open positions reached")
                 return False
 
-        current_position = self.open_positions.get(symbol, 0)
+        current_position = 0
+
+        if symbol in self.open_positions:
+            current_position = self.open_positions[symbol]["qty"]
 
         if current_position + qty > self.max_symbol_position:
 
