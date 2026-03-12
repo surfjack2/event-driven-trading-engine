@@ -1,35 +1,43 @@
-import time
-from ltb.core.trading_engine import TradingEngine
-from ltb.runtime.queue_bus import queue_signal
+from ltb.system.logger import logger
+from ltb.runtime.queue_bus import QueueBus
+
+from ltb.runtime.workers.market_worker import MarketWorker
+from ltb.indicator.indicator_worker import IndicatorWorker
+from ltb.runtime.workers.strategy_worker import StrategyWorker
+from ltb.runtime.workers.execution_worker import ExecutionWorker
+from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
+from ltb.runtime.workers.portfolio_worker import PortfolioWorker
+from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
+from ltb.runtime.workers.risk_worker import RiskWorker
+from ltb.runtime.workers.analytics_worker import AnalyticsWorker
+from ltb.runtime.workers.alert_worker import AlertWorker
 
 
 def run_engine():
 
-    engine = TradingEngine()
+    logger.info("=== LTB ENGINE PROCESS STARTED ===")
 
-    print("=== LTB ENGINE PROCESS STARTED ===")
+    bus = QueueBus()
 
-    while True:
+    workers = [
 
-        try:
+        MarketWorker(bus),
+        IndicatorWorker(bus),
+        StrategyWorker(bus),
+        ExecutionWorker(bus),
+        OrderExecutorWorker(bus),
+        PortfolioWorker(bus),
+        TrailingStopWorker(bus),
+        RiskWorker(bus),
+        AnalyticsWorker(bus),
+        AlertWorker(bus)
 
-            # 기존 엔진 루프
-            engine.tick()
+    ]
 
-            # Strategy Worker 신호 처리
-            while not queue_signal.empty():
+    for worker in workers:
 
-                signal = queue_signal.get()
+        logger.info(f"[STARTING WORKER] {worker.__class__.__name__}")
 
-                symbol = signal["symbol"]
-                price = signal["price"]
+        worker.run()
 
-                print(f"[ENGINE] executing signal {signal}")
-
-                engine.execution.enter(symbol, 1, price, price * 0.92)
-
-        except Exception as e:
-
-            print("ENGINE ERROR:", e)
-
-        time.sleep(1)
+    logger.info("=== ALL WORKERS STARTED ===")

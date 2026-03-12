@@ -14,6 +14,9 @@ class PortfolioWorker:
         # 이벤트 구독
         self.event_bus.subscribe("ORDER_FILLED", self.handle_fill)
 
+        # Kill Switch 청산 이벤트
+        self.event_bus.subscribe("risk.close_all", self.handle_close_all)
+
     def run(self):
 
         log.info("[PORTFOLIO WORKER STARTED]")
@@ -24,6 +27,7 @@ class PortfolioWorker:
     def handle_fill(self, fill):
 
         symbol = fill["symbol"]
+        strategy = fill.get("strategy")
 
         if fill["action"] == "BUY":
 
@@ -32,19 +36,17 @@ class PortfolioWorker:
                 "entry_price": fill["price"],
                 "qty": fill["qty"],
                 "highest_price": fill["price"],
+                "strategy": strategy
             }
 
             self.positions[symbol] = position
 
-            # 먼저 로그
             log.info(
                 f"[PORTFOLIO] OPEN symbol={symbol} qty={position['qty']} entry={position['entry_price']}"
             )
 
-            # 포지션 오픈 이벤트
             self.event_bus.publish("POSITION_OPENED", position)
 
-            # ExecutionWorker 상태 업데이트
             self.event_bus.publish(
                 "portfolio.update",
                 {
@@ -59,15 +61,23 @@ class PortfolioWorker:
 
                 pos = self.positions.pop(symbol)
 
-                # 먼저 로그
+                pnl = (fill["price"] - pos["entry_price"]) * pos["qty"]
+
+                trade = {
+                    "symbol": symbol,
+                    "entry_price": pos["entry_price"],
+                    "exit_price": fill["price"],
+                    "qty": pos["qty"],
+                    "pnl": pnl,
+                    "strategy": pos.get("strategy")
+                }
+
                 log.info(
-                    f"[PORTFOLIO] CLOSE symbol={symbol} qty={pos['qty']} entry={pos['entry_price']}"
+                    f"[PORTFOLIO] CLOSE symbol={symbol} qty={pos['qty']} pnl={pnl}"
                 )
 
-                # 포지션 종료 이벤트
-                self.event_bus.publish("POSITION_CLOSED", pos)
+                self.event_bus.publish("POSITION_CLOSED", trade)
 
-                # ExecutionWorker 상태 업데이트
                 self.event_bus.publish(
                     "portfolio.update",
                     {
@@ -75,3 +85,28 @@ class PortfolioWorker:
                         "position": 0
                     }
                 )
+
+    def handle_close_all(self, data):
+
+        reason = data.get("reason")
+
+        log.error(f"[PORTFOLIO] CLOSE ALL POSITIONS reason={reason}")
+
+        for symbol, pos in list(self.positions.items()):
+
+            qty = pos["qty"]
+
+            self.event_bus.publish(
+                "order.request",
+                {
+                    "symbol": symbol,
+                    "side": "SELL",
+                    "price": pos["entry_price"],
+                    "qty": qty,
+                    "strategy": pos.get("strategy")
+                }
+            )
+
+            log.error(
+                f"[PORTFOLIO] emergency sell symbol={symbol} qty={qty}"
+            )

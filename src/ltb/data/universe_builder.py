@@ -1,21 +1,17 @@
 class UniverseBuilder:
 
-    def __init__(self):
-        pass
+    def __init__(self, size=200):
+
+        self.size = size
 
     def build(self):
 
-        symbols = [
-            "100001",
-            "100019",
-            "100066",
-            "100231",
-            "100281",
-            "100332",
-            "100455",
-            "100463",
-            "100522",
-            "100699"
-        ]
+        symbols = []
+
+        for i in range(self.size):
+
+            symbol = f"TEST{i:03d}"
+
+            symbols.append(symbol)
 
         return symbols

@@ -1,4 +1,5 @@
 from collections import deque
+import statistics
 
 
 class IndicatorEngine:
@@ -6,21 +7,28 @@ class IndicatorEngine:
     def __init__(self):
 
         self.prices = {}
+        self.volumes = {}
 
         self.rsi_period = 14
-        self.stoch_period = 14
         self.ema_period = 20
+        self.volume_ma_period = 20
 
-    def add_price(self, symbol, price):
+    def add_price(self, symbol, price, volume):
 
         if symbol not in self.prices:
-            self.prices[symbol] = deque(maxlen=100)
+            self.prices[symbol] = deque(maxlen=200)
+            self.volumes[symbol] = deque(maxlen=200)
 
         self.prices[symbol].append(price)
+        self.volumes[symbol].append(volume)
 
     def get_prices(self, symbol):
 
         return list(self.prices.get(symbol, []))
+
+    def get_volumes(self, symbol):
+
+        return list(self.volumes.get(symbol, []))
 
     # ==========================
     # EMA
@@ -78,26 +86,54 @@ class IndicatorEngine:
         return 100 - (100 / (1 + rs))
 
     # ==========================
-    # STOCH
+    # VWAP
     # ==========================
 
-    def stochastic(self, symbol):
+    def vwap(self, symbol):
+
+        prices = self.get_prices(symbol)
+        volumes = self.get_volumes(symbol)
+
+        if not prices or not volumes:
+            return None
+
+        pv = sum(p * v for p, v in zip(prices, volumes))
+        total_volume = sum(volumes)
+
+        if total_volume == 0:
+            return None
+
+        return pv / total_volume
+
+    # ==========================
+    # VWAP BANDS
+    # ==========================
+
+    def vwap_bands(self, symbol):
 
         prices = self.get_prices(symbol)
 
-        if len(prices) < self.stoch_period:
+        if len(prices) < 20:
+            return None, None
+
+        vwap = self.vwap(symbol)
+
+        std = statistics.pstdev(prices)
+
+        upper = vwap + std
+        lower = vwap - std
+
+        return upper, lower
+
+    # ==========================
+    # Volume MA
+    # ==========================
+
+    def volume_ma(self, symbol):
+
+        volumes = self.get_volumes(symbol)
+
+        if len(volumes) < self.volume_ma_period:
             return None
 
-        period = prices[-self.stoch_period:]
-
-        low = min(period)
-        high = max(period)
-
-        if high == low:
-            return 50
-
-        close = prices[-1]
-
-        k = (close - low) / (high - low) * 100
-
-        return k
+        return sum(volumes[-self.volume_ma_period:]) / self.volume_ma_period

@@ -36,6 +36,7 @@ class OrderExecutorWorker:
                 "action": order["side"],
                 "price": order["price"],
                 "qty": order.get("qty", 1),
+                "strategy": order.get("strategy")
             }
 
             self.event_bus.publish("ORDER_FILLED", filled)

@@ -1,6 +1,7 @@
 import yaml
 
 from ltb.strategy.simple_momentum_strategy import SimpleMomentumStrategy
+from ltb.strategy.strategies.vwap_reclaim_band import VWAPReclaimBandStrategy
 
 
 class StrategyLoader:
@@ -22,9 +23,23 @@ class StrategyLoader:
             if not config.get("enabled", False):
                 continue
 
+            # --------------------------
+            # Simple Momentum Strategy
+            # --------------------------
+
             if name == "simple_momentum":
 
                 strategy = SimpleMomentumStrategy(config)
+
+                strategies.append(strategy)
+
+            # --------------------------
+            # VWAP Reclaim Band Strategy
+            # --------------------------
+
+            elif name == "vwap_reclaim_band":
+
+                strategy = VWAPReclaimBandStrategy(config)
 
                 strategies.append(strategy)
 

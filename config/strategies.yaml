@@ -21,3 +21,20 @@ strategies:
     trailing_stop:
 
       percent: 5
+
+
+  vwap_reclaim_band:
+
+    enabled: true
+
+    symbols:
+      - TEST
+
+    indicators:
+
+      vwap_band_std: 2
+      volume_ma_period: 20
+
+    risk:
+
+      position_size: 1

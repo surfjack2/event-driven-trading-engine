@@ -4,11 +4,16 @@ import time
 from ltb.runtime.queue_bus import QueueBus
 
 from ltb.runtime.workers.market_worker import MarketWorker
+from ltb.runtime.workers.scanner_worker import ScannerWorker
+from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
 from ltb.indicator.indicator_worker import IndicatorWorker
 from ltb.runtime.workers.strategy_worker import StrategyWorker
+from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
 from ltb.runtime.workers.execution_worker import ExecutionWorker
 from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
 from ltb.runtime.workers.portfolio_worker import PortfolioWorker
+from ltb.runtime.workers.trade_ledger_worker import TradeLedgerWorker
+from ltb.runtime.workers.strategy_performance_worker import StrategyPerformanceWorker
 from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
 from ltb.runtime.workers.risk_worker import RiskWorker
 from ltb.runtime.workers.analytics_worker import AnalyticsWorker
@@ -19,9 +24,30 @@ from ltb.system.logger import logger
 
 def start_worker(worker):
 
+    def run_worker():
+
+        while True:
+
+            try:
+
+                worker.run()
+
+            except Exception as e:
+
+                logger.error(
+                    f"[WORKER CRASH] {worker.__class__.__name__} error={e}"
+                )
+
+                logger.error(
+                    f"[WORKER RESTART] restarting {worker.__class__.__name__} in 2s"
+                )
+
+                time.sleep(2)
+
     logger.info(f"[STARTING WORKER] {worker.__class__.__name__}")
 
-    t = threading.Thread(target=worker.run, daemon=True)
+    t = threading.Thread(target=run_worker, daemon=True)
+
     t.start()
 
     return t
@@ -35,34 +61,34 @@ def main():
 
     workers = [
 
-        # Market data source
         MarketWorker(bus),
 
-        # Indicator calculation layer
+        ScannerWorker(bus),
+
+        UniverseScannerWorker(bus),
+
         IndicatorWorker(bus),
 
-        # Strategy evaluation
         StrategyWorker(bus),
 
-        # Execution routing
+        StrategyAllocationWorker(bus),
+
         ExecutionWorker(bus),
 
-        # Order execution
         OrderExecutorWorker(bus),
 
-        # Portfolio state management
         PortfolioWorker(bus),
 
-        # Trailing stop logic
+        TradeLedgerWorker(bus),
+
+        StrategyPerformanceWorker(bus),
+
         TrailingStopWorker(bus),
 
-        # Risk control
         RiskWorker(bus),
 
-        # Analytics / metrics
         AnalyticsWorker(bus),
 
-        # Alert / notification
         AlertWorker(bus),
 
     ]
@@ -70,7 +96,6 @@ def main():
     threads = []
 
     for worker in workers:
-
         threads.append(start_worker(worker))
 
     logger.info("=== ALL WORKERS STARTED ===")

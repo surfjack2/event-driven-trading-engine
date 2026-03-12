@@ -22,38 +22,48 @@ class IndicatorWorker:
 
         symbol = event["symbol"]
         price = event["price"]
+        volume = event.get("volume", 0)
+        prev_price = event.get("prev_price")
 
-        self.engine.add_price(symbol, price)
+        self.engine.add_price(symbol, price, volume)
 
         rsi = self.engine.rsi(symbol)
         stoch = self.engine.stochastic(symbol)
         ema = self.engine.ema(symbol)
 
+        vwap = self.engine.vwap(symbol)
+        vwap_upper, vwap_lower = self.engine.vwap_bands(symbol)
+
+        volume_ma = self.engine.volume_ma(symbol)
+
         indicator_event = {
 
             "symbol": symbol,
             "price": price,
+            "prev_price": prev_price,
+
             "rsi": rsi,
             "stoch": stoch,
-            "ema": ema
+            "ema": ema,
+
+            "vwap": vwap,
+            "vwap_upper": vwap_upper,
+            "vwap_lower": vwap_lower,
+
+            "volume": volume,
+            "volume_ma": volume_ma,
         }
 
         logger.info(
-            "[INDICATOR] %s rsi=%s stoch=%s ema=%s",
+            "[INDICATOR] %s rsi=%s stoch=%s ema=%s vwap=%s",
             symbol,
             rsi,
             stoch,
-            ema
+            ema,
+            vwap
         )
 
         self.bus.publish(
             "market.indicator",
             indicator_event
         )
-
-
-def run_indicator_worker(bus):
-
-    worker = IndicatorWorker(bus)
-
-    worker.run()

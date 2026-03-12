@@ -16,7 +16,9 @@ class ExecutionWorker:
         self.risk = RiskEngine()
         self.sizer = PositionSizer()
 
-        self.bus.subscribe("strategy.signal", self.on_signal)
+        # 전략 allocation 이후 이벤트 수신
+        self.bus.subscribe("allocation.signal", self.on_signal)
+
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
 
@@ -48,6 +50,7 @@ class ExecutionWorker:
 
         symbol = signal["symbol"]
         price = signal["price"]
+        strategy = signal.get("strategy")
 
         logger.info("[EXECUTION] processing signal %s", signal)
 
@@ -77,7 +80,8 @@ class ExecutionWorker:
             "symbol": symbol,
             "side": "BUY",
             "price": price,
-            "qty": qty
+            "qty": qty,
+            "strategy": strategy
         }
 
         self.bus.publish("order.request", order)

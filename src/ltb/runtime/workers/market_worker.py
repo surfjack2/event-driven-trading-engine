@@ -2,6 +2,7 @@ import random
 import time
 
 from ltb.system.logger import logger
+from ltb.data.universe_builder import UniverseBuilder
 
 
 class MarketWorker:
@@ -9,7 +10,18 @@ class MarketWorker:
     def __init__(self, event_bus):
 
         self.event_bus = event_bus
-        self.price = 55000
+
+        self.universe = UniverseBuilder().build()
+
+        self.prices = {}
+        self.prev_prices = {}
+
+        for symbol in self.universe:
+
+            base_price = 55000 + random.uniform(-1000, 1000)
+
+            self.prices[symbol] = base_price
+            self.prev_prices[symbol] = None
 
     def run(self):
 
@@ -17,27 +29,37 @@ class MarketWorker:
 
         while True:
 
-            move = random.uniform(-200, 200)
-            self.price += move
+            for symbol in self.universe:
 
-            price = float(self.price)
+                move = random.uniform(-200, 200)
 
-            self.event_bus.publish(
-                "market.price",
-                {
-                    "symbol": "TEST",
+                self.prices[symbol] += move
+
+                price = float(self.prices[symbol])
+
+                volume = random.randint(1000, 10000)
+
+                event = {
+                    "symbol": symbol,
                     "price": price,
-                },
-            )
+                    "volume": volume,
+                    "prev_price": self.prev_prices[symbol],
+                }
 
-            self.event_bus.publish(
-                "MARKET_TICK",
-                {
-                    "symbol": "TEST",
-                    "price": price,
-                },
-            )
+                self.event_bus.publish(
+                    "market.price",
+                    event,
+                )
 
-            logger.info(f"[MARKET] price={price}")
+                self.event_bus.publish(
+                    "MARKET_TICK",
+                    event,
+                )
+
+                logger.debug(
+                    f"[MARKET] {symbol} price={price} volume={volume}"
+                )
+
+                self.prev_prices[symbol] = price
 
             time.sleep(0.2)
