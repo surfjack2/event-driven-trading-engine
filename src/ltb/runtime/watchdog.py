@@ -7,6 +7,7 @@ from ltb.runtime.workers.market_worker import MarketWorker
 from ltb.runtime.workers.scanner_worker import ScannerWorker
 from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
 from ltb.runtime.workers.ranking_worker import RankingWorker
+from ltb.runtime.workers.heartbeat_worker import HeartbeatWorker
 from ltb.indicator.indicator_worker import IndicatorWorker
 from ltb.runtime.workers.strategy_worker import StrategyWorker
 from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
@@ -93,6 +94,9 @@ def main():
         AnalyticsWorker(bus),
 
         AlertWorker(bus),
+
+        # --- system health monitor ---
+        HeartbeatWorker(bus),
 
     ]
 
