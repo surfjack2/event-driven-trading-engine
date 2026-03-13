@@ -4,8 +4,8 @@ import time
 
 class LiquidityFilterWorker:
 
-    MIN_VOLUME = 2000
-    MIN_PRICE = 1000
+    MIN_VOLUME = 5000
+    MIN_PRICE = 2000
     MAX_SPREAD_RATIO = 0.002
 
     def __init__(self, bus):
@@ -33,19 +33,15 @@ class LiquidityFilterWorker:
         bid = signal.get("bid")
         ask = signal.get("ask")
 
-        # volume 없으면 바로 필터
         if volume is None:
-
             logger.debug("[LIQUIDITY] volume missing %s", symbol)
             return
 
         if volume < self.MIN_VOLUME:
-
             logger.debug("[LIQUIDITY] volume filtered %s", symbol)
             return
 
         if price is None or price < self.MIN_PRICE:
-
             logger.debug("[LIQUIDITY] price filtered %s", symbol)
             return
 
@@ -55,7 +51,6 @@ class LiquidityFilterWorker:
             spread_ratio = spread / price
 
             if spread_ratio > self.MAX_SPREAD_RATIO:
-
                 logger.debug("[LIQUIDITY] spread filtered %s", symbol)
                 return
 

@@ -8,6 +8,7 @@ import time
 class StrategyWorker:
 
     SIGNAL_COOLDOWN = 3.0
+    EXIT_COOLDOWN = 30.0
 
     def __init__(self, bus):
 
@@ -18,13 +19,10 @@ class StrategyWorker:
         self.universe = set()
         self.rankings = set()
 
-        # signal 중복 방지
         self.last_signal_time = {}
+        self.last_exit_time = {}
 
-        # 현재 보유 포지션
         self.positions = {}
-
-        # pending orders
         self.pending_orders = set()
 
         loader = StrategyLoader()
@@ -39,13 +37,13 @@ class StrategyWorker:
         )
 
         self.bus.subscribe(
-            "market.universe",
-            self.on_universe
+            "market.ranking",
+            self.on_ranking
         )
 
         self.bus.subscribe(
-            "market.ranking",
-            self.on_ranking
+            "market.universe",
+            self.on_universe
         )
 
         self.bus.subscribe(
@@ -73,7 +71,6 @@ class StrategyWorker:
     def on_universe(self, data):
 
         symbols = data.get("symbols", [])
-
         new_universe = set(symbols)
 
         if new_universe != self.universe:
@@ -88,7 +85,6 @@ class StrategyWorker:
     def on_ranking(self, data):
 
         symbols = data.get("symbols", [])
-
         new_rank = set(symbols)
 
         if new_rank != self.rankings:
@@ -110,6 +106,8 @@ class StrategyWorker:
             if symbol in self.positions:
                 del self.positions[symbol]
 
+            self.last_exit_time[symbol] = time.time()
+
         else:
 
             self.positions[symbol] = position
@@ -117,7 +115,6 @@ class StrategyWorker:
     def on_order_request(self, order):
 
         symbol = order["symbol"]
-
         self.pending_orders.add(symbol)
 
     def on_order_filled(self, order):
@@ -135,38 +132,31 @@ class StrategyWorker:
         if symbol is None or price is None:
             return
 
-        # ranking 아직 없으면 거래 금지
-        if not self.rankings:
+        if not self.rankings or symbol not in self.rankings:
             return
 
-        if symbol not in self.rankings:
-            return
-
-        # universe 필터
         if self.universe and symbol not in self.universe:
             return
 
-        # 이미 보유한 종목이면 차단
         if symbol in self.positions:
-
-            logger.debug(
-                "[STRATEGY] holding filtered %s",
-                symbol
-            )
-
             return
 
-        # pending 주문 있으면 차단
         if symbol in self.pending_orders:
-
-            logger.debug(
-                "[STRATEGY] pending order filtered %s",
-                symbol
-            )
-
             return
 
         now = time.time()
+
+        # exit cooldown
+        last_exit = self.last_exit_time.get(symbol, 0)
+
+        if now - last_exit < self.EXIT_COOLDOWN:
+
+            logger.debug(
+                "[STRATEGY] exit cooldown %s",
+                symbol
+            )
+
+            return
 
         last = self.last_signal_time.get(symbol, 0)
 

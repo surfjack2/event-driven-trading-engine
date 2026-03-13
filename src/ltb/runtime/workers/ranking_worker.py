@@ -67,7 +67,8 @@ class RankingWorker:
             reverse=True
         )
 
-        top = [s for s, _ in ranked[:30]]
+        # 🔴 기존 30 → 10
+        top = [s for s, _ in ranked[:10]]
 
         logger.info(f"[RANKING] top symbols={top}")
 

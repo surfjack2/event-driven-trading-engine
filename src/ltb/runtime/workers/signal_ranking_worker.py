@@ -1,5 +1,4 @@
 import time
-
 from ltb.system.logger import logger
 
 
@@ -34,20 +33,30 @@ class SignalRankingWorker:
                 reverse=True
             )
 
-            top = ranked[:self.MAX_SIGNALS]
+            published = 0
 
-            for symbol, data in top:
+            for symbol, data in ranked:
+
+                score = data["score"]
+
+                if score <= 0:
+                    continue
 
                 logger.info(
                     "[RANKING] passed %s score=%.2f",
                     symbol,
-                    data["score"]
+                    score
                 )
 
                 self.bus.publish(
                     "ranked.signal",
                     data["signal"]
                 )
+
+                published += 1
+
+                if published >= self.MAX_SIGNALS:
+                    break
 
             self.buffer.clear()
 
@@ -67,23 +76,18 @@ class SignalRankingWorker:
 
         score = 0
 
-        # momentum vs VWAP
         if vwap:
             score += ((price - vwap) / vwap) * 40
 
-        # trend slope
         if ema:
             score += ((price - ema) / ema) * 60
 
-        # volume spike
         if volume and volume_ma and volume_ma > 0:
             score += (volume / volume_ma) * 5
 
-        # ATR expansion
         if atr:
             score += (atr / price) * 100
 
-        # RSI strength
         if rsi:
             score += rsi / 20
 
