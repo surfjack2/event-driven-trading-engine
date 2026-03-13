@@ -8,8 +8,11 @@ from ltb.risk.position_sizer import PositionSizer
 
 class ExecutionWorker:
 
-    MAX_GLOBAL_POSITIONS = 20
+    MAX_GLOBAL_POSITIONS = 5
     ATR_MULTIPLIER = 2
+
+    # 글로벌 주문 rate limit
+    GLOBAL_ORDER_INTERVAL = 0.3
 
     def __init__(self, bus):
 
@@ -22,6 +25,9 @@ class ExecutionWorker:
         self.sizer = PositionSizer()
 
         self.last_signal_time = {}
+
+        # 글로벌 주문 속도 제어
+        self.last_global_order_time = 0
 
         self.lock = threading.Lock()
 
@@ -58,6 +64,7 @@ class ExecutionWorker:
 
         now = time.time()
 
+        # symbol cooldown
         last = self.last_signal_time.get(symbol, 0)
 
         if now - last < 5:
@@ -67,6 +74,13 @@ class ExecutionWorker:
             return
 
         with self.lock:
+
+            # 글로벌 주문 rate limit
+            if now - self.last_global_order_time < self.GLOBAL_ORDER_INTERVAL:
+
+                logger.debug("[EXECUTION] global rate limit active")
+
+                return
 
             self.last_signal_time[symbol] = now
 
@@ -110,6 +124,9 @@ class ExecutionWorker:
             }
 
             self.pending_orders.add(symbol)
+
+            # 글로벌 주문 시간 업데이트
+            self.last_global_order_time = now
 
         self.bus.publish("order.request", order)
 

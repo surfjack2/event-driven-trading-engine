@@ -7,6 +7,8 @@ import time
 
 class StrategyWorker:
 
+    SIGNAL_COOLDOWN = 1.0
+
     def __init__(self, bus):
 
         self.bus = bus
@@ -15,6 +17,12 @@ class StrategyWorker:
 
         self.universe = set()
         self.rankings = set()
+
+        # duplicate signal 방지
+        self.last_signal_time = {}
+
+        # 현재 보유 포지션
+        self.positions = {}
 
         loader = StrategyLoader()
         strategies = loader.load()
@@ -37,13 +45,35 @@ class StrategyWorker:
             self.on_ranking
         )
 
+        # portfolio 상태 구독
+        self.bus.subscribe(
+            "portfolio.update",
+            self.on_portfolio_update
+        )
+
     def run(self):
 
         logger.info("[STRATEGY WORKER STARTED]")
 
-        # watchdog restart 방지
         while True:
             time.sleep(1)
+
+    def on_portfolio_update(self, data):
+
+        symbol = data.get("symbol")
+        position = data.get("position", 0)
+
+        if symbol is None:
+            return
+
+        if position <= 0:
+
+            if symbol in self.positions:
+                del self.positions[symbol]
+
+        else:
+
+            self.positions[symbol] = position
 
     def on_universe(self, data):
 
@@ -94,9 +124,33 @@ class StrategyWorker:
         if self.universe and symbol not in self.universe:
             return
 
+        # 이미 보유한 종목이면 전략 차단
+        if symbol in self.positions:
+
+            logger.debug(
+                "[STRATEGY] holding filtered %s",
+                symbol
+            )
+
+            return
+
         signals = self.engine.evaluate(event)
 
         if not signals:
+            return
+
+        now = time.time()
+
+        last = self.last_signal_time.get(symbol, 0)
+
+        # duplicate signal filter
+        if now - last < self.SIGNAL_COOLDOWN:
+
+            logger.debug(
+                "[STRATEGY] duplicate filtered %s",
+                symbol
+            )
+
             return
 
         for signal in signals:
@@ -116,3 +170,5 @@ class StrategyWorker:
                 "strategy.signal",
                 signal
             )
+
+        self.last_signal_time[symbol] = now

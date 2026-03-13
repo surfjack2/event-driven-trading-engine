@@ -21,25 +21,30 @@ class LiquidityFilterWorker:
 
         logger.info("[LIQUIDITY FILTER WORKER STARTED]")
 
-        # watchdog restart 방지
         while True:
             time.sleep(1)
 
     def on_signal(self, signal):
+
+        symbol = signal["symbol"]
 
         volume = signal.get("volume")
         price = signal.get("price")
         bid = signal.get("bid")
         ask = signal.get("ask")
 
-        symbol = signal["symbol"]
+        # volume 없으면 바로 필터
+        if volume is None:
 
-        if volume and volume < self.MIN_VOLUME:
+            logger.debug("[LIQUIDITY] volume missing %s", symbol)
+            return
+
+        if volume < self.MIN_VOLUME:
 
             logger.debug("[LIQUIDITY] volume filtered %s", symbol)
             return
 
-        if price < self.MIN_PRICE:
+        if price is None or price < self.MIN_PRICE:
 
             logger.debug("[LIQUIDITY] price filtered %s", symbol)
             return
