@@ -3,91 +3,54 @@ from ltb.system.logger import logger
 
 class VWAPReclaimBandStrategy:
 
-    def __init__(self, config=None):
-
-        self.config = config or {}
-
-        # Lower band 터치 상태 기록
-        self.last_lower_touch = {}
+    name = "vwap_reclaim"
 
     def evaluate(self, event):
 
-        symbol = event.get("symbol")
+        symbol = event["symbol"]
 
-        price = event.get("price")
+        price = event["price"]
+        prev = event.get("prev_price")
+
         vwap = event.get("vwap")
-        upper = event.get("vwap_upper")
-        lower = event.get("vwap_lower")
 
         volume = event.get("volume")
         volume_ma = event.get("volume_ma")
 
-        prev_price = event.get("prev_price")
-
-        # 필수 데이터 부족 시 무시
-        if not all([price, vwap, upper, lower]):
+        if not vwap or not prev:
             return []
 
-        # ------------------------
-        # 1️⃣ Lower Band Touch
-        # ------------------------
+        reclaim = prev < vwap and price >= vwap
 
-        if price <= lower:
+        volume_spike = False
+        if volume and volume_ma and volume_ma > 0:
+            volume_spike = volume > volume_ma * 1.3
 
-            self.last_lower_touch[symbol] = True
+        momentum = price > prev
+
+        score = sum([
+            bool(reclaim),
+            bool(volume_spike),
+            bool(momentum)
+        ])
+
+        if reclaim:
+            logger.info("[VWAP] reclaim detected %s", symbol)
+
+        if score >= 2:
 
             logger.info(
-                f"[VWAP] lower band touched {symbol}"
+                "[VWAP] signal confirmed %s score=%s",
+                symbol,
+                score
             )
 
-            return []
+            return [{
+                "symbol": symbol,
+                "action": "BUY",
+                "price": price,
+                "qty": 1,
+                "strategy": self.name
+            }]
 
-        # ------------------------
-        # 2️⃣ VWAP Reclaim
-        # ------------------------
-
-        if prev_price is not None and prev_price < vwap and price > vwap:
-
-            if not self.last_lower_touch.get(symbol):
-                return []
-
-            logger.info(
-                f"[VWAP] reclaim detected {symbol}"
-            )
-
-        else:
-            return []
-
-        # ------------------------
-        # 3️⃣ Volume Confirmation
-        # ------------------------
-
-        if volume_ma is not None:
-
-            if volume < volume_ma:
-                logger.info(
-                    f"[VWAP] volume filter failed {symbol}"
-                )
-                return []
-
-        # ------------------------
-        # 4️⃣ Signal 생성
-        # ------------------------
-
-        signal = {
-
-            "symbol": symbol,
-            "action": "BUY",
-            "price": price,
-            "strategy": "vwap_reclaim_band"
-
-        }
-
-        logger.info(
-            f"[VWAP] BUY signal {symbol} price={price}"
-        )
-
-        # 상태 초기화 (중요)
-        self.last_lower_touch[symbol] = False
-
-        return [signal]
+        return []

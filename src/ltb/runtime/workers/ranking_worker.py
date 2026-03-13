@@ -46,16 +46,27 @@ class RankingWorker:
 
         # momentum
         change = (price - prev) / prev
-        score += change * 50
+        score += change * 40
 
-        # volume expansion
-        if volume and volume_ma and volume > volume_ma:
-            score += 10
+        # volume spike
+        if volume and volume_ma and volume_ma > 0:
 
-        # vwap proximity
+            ratio = volume / volume_ma
+            score += min(25, ratio * 10)
+
+        # VWAP proximity
         if vwap:
+
             distance = abs(price - vwap) / vwap
-            score += max(0, 5 - distance * 10)
+            proximity = max(0, 20 - distance * 200)
+
+            score += proximity
+
+        # breakout
+        high = data.get("high")
+
+        if high and price > high:
+            score += 15
 
         self.scores[symbol] = score
 
@@ -67,10 +78,9 @@ class RankingWorker:
             reverse=True
         )
 
-        # 🔴 기존 30 → 10
-        top = [s for s, _ in ranked[:10]]
+        top = [s for s, _ in ranked[:15]]
 
-        logger.info(f"[RANKING] top symbols={top}")
+        logger.info("[RANKING] top symbols=%s", top)
 
         self.bus.publish(
             "market.ranking",
