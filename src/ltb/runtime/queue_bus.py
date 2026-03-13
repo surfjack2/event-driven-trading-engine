@@ -15,7 +15,6 @@ class QueueBus:
 
         logger.info("[EVENT BUS INITIALIZED]")
 
-
     def subscribe(self, topic, handler):
 
         with self.lock:
@@ -23,15 +22,12 @@ class QueueBus:
             self.subscribers[topic].append(handler)
 
             logger.debug(
-                "[BUS] handler subscribed topic=%s handler=%s",
+                "[BUS] subscribed topic=%s handler=%s",
                 topic,
-                handler.__name__
+                handler.__qualname__,
             )
 
-
     def publish(self, topic, data):
-
-        handlers = []
 
         with self.lock:
 
@@ -45,16 +41,28 @@ class QueueBus:
 
         for handler in handlers:
 
-            try:
+            # handler 실행을 별도 thread에서 처리
+            t = threading.Thread(
+                target=self._safe_execute,
+                args=(topic, handler, data),
+                daemon=True,
+            )
 
-                handler(data)
+            t.start()
 
-            except Exception as e:
+    def _safe_execute(self, topic, handler, data):
 
-                logger.error("[BUS ERROR] topic=%s error=%s", topic, e)
+        try:
 
-                # 어떤 handler에서 터졌는지 출력
-                logger.error("[BUS ERROR] handler=%s", handler.__name__)
+            handler(data)
 
-                # stack trace 출력
-                traceback.print_exc()
+        except Exception as e:
+
+            logger.error(
+                "[BUS ERROR] topic=%s handler=%s error=%s",
+                topic,
+                handler.__qualname__,
+                e,
+            )
+
+            traceback.print_exc()
