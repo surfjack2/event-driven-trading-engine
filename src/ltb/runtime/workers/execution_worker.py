@@ -1,4 +1,5 @@
 import time
+import threading
 
 from ltb.system.logger import logger
 from ltb.risk.risk_engine import RiskEngine
@@ -21,6 +22,9 @@ class ExecutionWorker:
 
         self.last_signal_time = {}
 
+        # race condition protection
+        self.lock = threading.Lock()
+
         self.bus.subscribe("allocation.signal", self.on_signal)
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
@@ -36,15 +40,15 @@ class ExecutionWorker:
         symbol = data["symbol"]
         position = data["position"]
 
-        if position <= 0:
+        with self.lock:
 
-            self.positions.pop(symbol, None)
+            if position <= 0:
+                self.positions.pop(symbol, None)
+            else:
+                self.positions[symbol] = position
 
-        else:
-
-            self.positions[symbol] = position
-
-        self.pending_orders.discard(symbol)
+            # 주문 완료 시 pending 제거
+            self.pending_orders.discard(symbol)
 
     def on_signal(self, signal):
 
@@ -53,50 +57,59 @@ class ExecutionWorker:
         strategy = signal.get("strategy")
 
         now = time.time()
+
+        # cooldown filter
         last = self.last_signal_time.get(symbol, 0)
 
         if now - last < 5:
-            return
 
-        self.last_signal_time[symbol] = now
-
-        if symbol in self.positions or symbol in self.pending_orders:
-
-            logger.info(
-                "[POSITION GATE] already holding or pending %s",
-                symbol
-            )
+            logger.debug("[EXECUTION] cooldown active %s", symbol)
 
             return
 
-        if len(self.positions) >= self.MAX_GLOBAL_POSITIONS:
+        with self.lock:
 
-            logger.warning(
-                "[EXECUTION] global position limit reached"
-            )
+            self.last_signal_time[symbol] = now
 
-            return
+            if symbol in self.positions or symbol in self.pending_orders:
 
-        stop_price = price * 0.92
+                logger.info(
+                    "[POSITION GATE] already holding or pending %s",
+                    symbol
+                )
 
-        qty = self.sizer.calculate(price, stop_price)
+                return
 
-        if not self.risk.check(symbol, qty, price):
+            if len(self.positions) >= self.MAX_GLOBAL_POSITIONS:
 
-            logger.warning("[EXECUTION] risk engine blocked order")
+                logger.warning(
+                    "[EXECUTION] global position limit reached"
+                )
 
-            return
+                return
 
-        order = {
-            "symbol": symbol,
-            "side": "BUY",
-            "price": price,
-            "qty": qty,
-            "strategy": strategy
-        }
+            stop_price = price * 0.92
 
-        self.pending_orders.add(symbol)
+            qty = self.sizer.calculate(price, stop_price)
 
+            if not self.risk.check(symbol, qty, price):
+
+                logger.warning("[EXECUTION] risk engine blocked order")
+
+                return
+
+            order = {
+                "symbol": symbol,
+                "side": "BUY",
+                "price": price,
+                "qty": qty,
+                "strategy": strategy
+            }
+
+            # pending 등록 (race protection)
+            self.pending_orders.add(symbol)
+
+        # lock 밖에서 publish
         self.bus.publish("order.request", order)
 
         logger.info("[EXECUTION] order request published")
