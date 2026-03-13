@@ -7,7 +7,7 @@ import time
 
 class StrategyWorker:
 
-    SIGNAL_COOLDOWN = 1.0
+    SIGNAL_COOLDOWN = 3.0
 
     def __init__(self, bus):
 
@@ -18,11 +18,14 @@ class StrategyWorker:
         self.universe = set()
         self.rankings = set()
 
-        # duplicate signal 방지
+        # signal 중복 방지
         self.last_signal_time = {}
 
         # 현재 보유 포지션
         self.positions = {}
+
+        # pending orders
+        self.pending_orders = set()
 
         loader = StrategyLoader()
         strategies = loader.load()
@@ -45,10 +48,19 @@ class StrategyWorker:
             self.on_ranking
         )
 
-        # portfolio 상태 구독
         self.bus.subscribe(
             "portfolio.update",
             self.on_portfolio_update
+        )
+
+        self.bus.subscribe(
+            "order.request",
+            self.on_order_request
+        )
+
+        self.bus.subscribe(
+            "ORDER_FILLED",
+            self.on_order_filled
         )
 
     def run(self):
@@ -57,23 +69,6 @@ class StrategyWorker:
 
         while True:
             time.sleep(1)
-
-    def on_portfolio_update(self, data):
-
-        symbol = data.get("symbol")
-        position = data.get("position", 0)
-
-        if symbol is None:
-            return
-
-        if position <= 0:
-
-            if symbol in self.positions:
-                del self.positions[symbol]
-
-        else:
-
-            self.positions[symbol] = position
 
     def on_universe(self, data):
 
@@ -105,6 +100,33 @@ class StrategyWorker:
                 len(self.rankings)
             )
 
+    def on_portfolio_update(self, data):
+
+        symbol = data["symbol"]
+        position = data["position"]
+
+        if position <= 0:
+
+            if symbol in self.positions:
+                del self.positions[symbol]
+
+        else:
+
+            self.positions[symbol] = position
+
+    def on_order_request(self, order):
+
+        symbol = order["symbol"]
+
+        self.pending_orders.add(symbol)
+
+    def on_order_filled(self, order):
+
+        symbol = order["symbol"]
+
+        if symbol in self.pending_orders:
+            self.pending_orders.remove(symbol)
+
     def on_market(self, event):
 
         symbol = event.get("symbol")
@@ -124,7 +146,7 @@ class StrategyWorker:
         if self.universe and symbol not in self.universe:
             return
 
-        # 이미 보유한 종목이면 전략 차단
+        # 이미 보유한 종목이면 차단
         if symbol in self.positions:
 
             logger.debug(
@@ -134,23 +156,32 @@ class StrategyWorker:
 
             return
 
-        signals = self.engine.evaluate(event)
+        # pending 주문 있으면 차단
+        if symbol in self.pending_orders:
 
-        if not signals:
+            logger.debug(
+                "[STRATEGY] pending order filtered %s",
+                symbol
+            )
+
             return
 
         now = time.time()
 
         last = self.last_signal_time.get(symbol, 0)
 
-        # duplicate signal filter
         if now - last < self.SIGNAL_COOLDOWN:
 
             logger.debug(
-                "[STRATEGY] duplicate filtered %s",
+                "[STRATEGY] cooldown filtered %s",
                 symbol
             )
 
+            return
+
+        signals = self.engine.evaluate(event)
+
+        if not signals:
             return
 
         for signal in signals:
