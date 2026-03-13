@@ -2,6 +2,7 @@ import time
 from collections import defaultdict
 
 from ltb.system.logger import logger
+from ltb.risk.position_sizer import PositionSizer
 
 
 class TradeLedgerWorker:
@@ -21,6 +22,9 @@ class TradeLedgerWorker:
 
         # 열린 포지션 저장
         self.open_positions = {}
+
+        # adaptive position sizing 연결
+        self.position_sizer = PositionSizer()
 
         self.bus.subscribe("POSITION_OPENED", self.on_position_open)
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
@@ -81,6 +85,18 @@ class TradeLedgerWorker:
         logger.info(
             f"[TRADE LEDGER] trade recorded symbol={symbol} strategy={strategy} pnl={pnl} daily={self.daily_pnl}"
         )
+
+        # ⭐ Adaptive position sizing 업데이트
+        try:
+
+            self.position_sizer.update_pnl(pnl)
+
+        except Exception as e:
+
+            logger.warning(
+                "[POSITION SIZER UPDATE FAILED] %s",
+                e
+            )
 
         # 전략 성과 시스템 전달
         self.bus.publish("trade.closed", trade_record)

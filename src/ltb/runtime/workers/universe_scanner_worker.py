@@ -1,6 +1,7 @@
 import time
 from ltb.system.logger import logger
 from ltb.data.universe_builder import UniverseBuilder
+from ltb.risk.correlation_engine import CorrelationRiskEngine
 
 
 class UniverseScannerWorker:
@@ -22,6 +23,9 @@ class UniverseScannerWorker:
         # 최대 universe
         self.max_universe = 200
 
+        # correlation engine
+        self.correlation = CorrelationRiskEngine()
+
         self.bus.subscribe(
             "market.scanner",
             self.on_scanner
@@ -36,6 +40,22 @@ class UniverseScannerWorker:
             self.cleanup_candidates()
 
             base = set(self.builder.build())
+
+            # -----------------------------
+            # Correlation sector registration
+            # -----------------------------
+            for symbol in base:
+
+                if symbol.startswith("TEST0"):
+                    sector = "TECH"
+
+                elif symbol.startswith("TEST1"):
+                    sector = "FINANCE"
+
+                else:
+                    sector = "OTHER"
+
+                self.correlation.register_symbol(symbol, sector)
 
             dynamic = set(self.scanner_candidates.keys())
 

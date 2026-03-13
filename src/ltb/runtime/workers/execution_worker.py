@@ -8,7 +8,8 @@ from ltb.risk.position_sizer import PositionSizer
 
 class ExecutionWorker:
 
-    MAX_GLOBAL_POSITIONS = 5
+    MAX_GLOBAL_POSITIONS = 20
+    ATR_MULTIPLIER = 2
 
     def __init__(self, bus):
 
@@ -22,7 +23,6 @@ class ExecutionWorker:
 
         self.last_signal_time = {}
 
-        # race condition protection
         self.lock = threading.Lock()
 
         self.bus.subscribe("allocation.signal", self.on_signal)
@@ -47,7 +47,6 @@ class ExecutionWorker:
             else:
                 self.positions[symbol] = position
 
-            # 주문 완료 시 pending 제거
             self.pending_orders.discard(symbol)
 
     def on_signal(self, signal):
@@ -55,10 +54,10 @@ class ExecutionWorker:
         symbol = signal["symbol"]
         price = signal["price"]
         strategy = signal.get("strategy")
+        atr = signal.get("atr", 0)
 
         now = time.time()
 
-        # cooldown filter
         last = self.last_signal_time.get(symbol, 0)
 
         if now - last < 5:
@@ -88,7 +87,11 @@ class ExecutionWorker:
 
                 return
 
-            stop_price = price * 0.92
+            # ATR 기반 stop
+            if atr > 0:
+                stop_price = price - atr * self.ATR_MULTIPLIER
+            else:
+                stop_price = price * 0.92
 
             qty = self.sizer.calculate(price, stop_price)
 
@@ -106,10 +109,14 @@ class ExecutionWorker:
                 "strategy": strategy
             }
 
-            # pending 등록 (race protection)
             self.pending_orders.add(symbol)
 
-        # lock 밖에서 publish
         self.bus.publish("order.request", order)
 
-        logger.info("[EXECUTION] order request published")
+        logger.info(
+            "[EXECUTION] order request published price=%s atr=%s stop=%s qty=%s",
+            price,
+            atr,
+            stop_price,
+            qty
+        )

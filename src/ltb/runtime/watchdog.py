@@ -7,10 +7,12 @@ from ltb.runtime.workers.market_worker import MarketWorker
 from ltb.runtime.workers.scanner_worker import ScannerWorker
 from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
 from ltb.runtime.workers.ranking_worker import RankingWorker
-from ltb.runtime.workers.heartbeat_worker import HeartbeatWorker
 from ltb.indicator.indicator_worker import IndicatorWorker
+
 from ltb.runtime.workers.strategy_worker import StrategyWorker
+from ltb.runtime.workers.signal_ranking_worker import SignalRankingWorker
 from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
+
 from ltb.runtime.workers.execution_worker import ExecutionWorker
 from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
 from ltb.runtime.workers.portfolio_worker import PortfolioWorker
@@ -20,6 +22,8 @@ from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
 from ltb.runtime.workers.risk_worker import RiskWorker
 from ltb.runtime.workers.analytics_worker import AnalyticsWorker
 from ltb.runtime.workers.alert_worker import AlertWorker
+from ltb.runtime.workers.killswitch_worker import KillSwitchWorker
+from ltb.runtime.workers.heartbeat_worker import HeartbeatWorker
 
 from ltb.system.logger import logger
 
@@ -63,39 +67,53 @@ def main():
 
     workers = [
 
+        # market data
         MarketWorker(bus),
 
+        # scanning
         ScannerWorker(bus),
-
         UniverseScannerWorker(bus),
 
+        # symbol ranking
         RankingWorker(bus),
 
+        # indicator calculation
         IndicatorWorker(bus),
 
+        # strategy evaluation
         StrategyWorker(bus),
 
+        # signal quality ranking
+        SignalRankingWorker(bus),
+
+        # strategy capital allocation
         StrategyAllocationWorker(bus),
 
+        # execution pipeline
         ExecutionWorker(bus),
-
         OrderExecutorWorker(bus),
 
+        # portfolio management
         PortfolioWorker(bus),
-
         TradeLedgerWorker(bus),
 
+        # performance tracking
         StrategyPerformanceWorker(bus),
 
+        # risk & exit
         TrailingStopWorker(bus),
-
         RiskWorker(bus),
 
+        # analytics
         AnalyticsWorker(bus),
 
+        # alerts
         AlertWorker(bus),
 
-        # --- system health monitor ---
+        # emergency protection
+        KillSwitchWorker(bus),
+
+        # engine health monitoring
         HeartbeatWorker(bus),
 
     ]

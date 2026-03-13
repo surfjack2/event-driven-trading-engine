@@ -28,7 +28,9 @@ class StrategyAllocationWorker:
         # 전략 성과 통계
         self.strategy_stats = {}
 
-        self.bus.subscribe("strategy.signal", self.on_signal)
+        # 🔴 변경된 부분
+        self.bus.subscribe("liquidity.signal", self.on_signal)
+
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
         self.bus.subscribe("strategy.performance", self.on_performance)
 

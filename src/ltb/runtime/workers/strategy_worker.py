@@ -2,6 +2,8 @@ from ltb.system.logger import logger
 from ltb.strategy.strategy_engine import StrategyEngine
 from ltb.strategy.strategy_loader import StrategyLoader
 
+import time
+
 
 class StrategyWorker:
 
@@ -39,6 +41,10 @@ class StrategyWorker:
 
         logger.info("[STRATEGY WORKER STARTED]")
 
+        # watchdog restart 방지
+        while True:
+            time.sleep(1)
+
     def on_universe(self, data):
 
         symbols = data.get("symbols", [])
@@ -50,7 +56,8 @@ class StrategyWorker:
             self.universe = new_universe
 
             logger.info(
-                f"[STRATEGY] universe updated size={len(self.universe)}"
+                "[STRATEGY] universe updated size=%s",
+                len(self.universe)
             )
 
     def on_ranking(self, data):
@@ -64,7 +71,8 @@ class StrategyWorker:
             self.rankings = new_rank
 
             logger.info(
-                f"[STRATEGY] ranking updated size={len(self.rankings)}"
+                "[STRATEGY] ranking updated size=%s",
+                len(self.rankings)
             )
 
     def on_market(self, event):
@@ -93,14 +101,15 @@ class StrategyWorker:
 
         for signal in signals:
 
-            # indicator 정보를 signal에 병합
             signal["rsi"] = event.get("rsi")
             signal["volume"] = event.get("volume")
             signal["volume_ma"] = event.get("volume_ma")
             signal["vwap"] = event.get("vwap")
+            signal["atr"] = event.get("atr")
 
             logger.info(
-                f"[STRATEGY] signal generated {signal}"
+                "[STRATEGY] signal generated %s",
+                signal
             )
 
             self.bus.publish(
