@@ -11,16 +11,26 @@ class StrategyAllocationWorker:
 
         self.bus = bus
 
-        self.allocations = {}
+        # 기본 weight
+        self.allocations = {
+            "simple_momentum": 0.4,
+            "vwap_reclaim": 0.3,
+            "vwap_bounce": 0.3
+        }
 
         self.strategy_enabled = {}
 
         self.strategy_pnl = {}
         self.strategy_stats = {}
 
+        self.market_regime = "neutral"
+
         self.bus.subscribe("liquidity.signal", self.on_signal)
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
         self.bus.subscribe("strategy.performance", self.on_performance)
+
+        # market regime event
+        self.bus.subscribe("market.regime", self.on_market_regime)
 
     def run(self):
 
@@ -28,6 +38,22 @@ class StrategyAllocationWorker:
 
         while True:
             time.sleep(5)
+
+    def on_market_regime(self, data):
+
+        regime = data.get("regime")
+
+        if not regime:
+            return
+
+        self.market_regime = regime
+
+        logger.info(
+            "[ALLOCATION] market regime update %s",
+            regime
+        )
+
+        self.rebalance()
 
     def on_signal(self, signal):
 
@@ -46,9 +72,10 @@ class StrategyAllocationWorker:
         signal["allocation_weight"] = weight
 
         logger.info(
-            "[ALLOCATION] passing signal strategy=%s weight=%s",
+            "[ALLOCATION] passing signal strategy=%s weight=%s regime=%s",
             strategy,
-            weight
+            weight,
+            self.market_regime
         )
 
         self.bus.publish("allocation.signal", signal)
@@ -103,6 +130,31 @@ class StrategyAllocationWorker:
 
         self.rebalance()
 
+    def apply_regime_modifier(self, weights):
+
+        if self.market_regime == "bull":
+
+            if "simple_momentum" in weights:
+                weights["simple_momentum"] *= 1.3
+
+            if "vwap_reclaim" in weights:
+                weights["vwap_reclaim"] *= 0.8
+
+        elif self.market_regime == "sideways":
+
+            if "vwap_reclaim" in weights:
+                weights["vwap_reclaim"] *= 1.4
+
+            if "simple_momentum" in weights:
+                weights["simple_momentum"] *= 0.7
+
+        elif self.market_regime == "bear":
+
+            for k in weights:
+                weights[k] *= 0.5
+
+        return weights
+
     def rebalance(self):
 
         scores = {}
@@ -132,11 +184,17 @@ class StrategyAllocationWorker:
 
             w = max(self.MIN_WEIGHT, min(self.MAX_WEIGHT, w))
 
-            new_allocations[strategy] = round(w, 2)
+            new_allocations[strategy] = w
+
+        new_allocations = self.apply_regime_modifier(new_allocations)
+
+        for k in new_allocations:
+            new_allocations[k] = round(new_allocations[k], 2)
 
         self.allocations.update(new_allocations)
 
         logger.info(
-            "[ALLOCATION] normalized weights %s",
-            self.allocations
+            "[ALLOCATION] normalized weights %s regime=%s",
+            self.allocations,
+            self.market_regime
         )

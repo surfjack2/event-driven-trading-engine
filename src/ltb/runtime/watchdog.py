@@ -4,6 +4,8 @@ import time
 from ltb.runtime.queue_bus import QueueBus
 
 from ltb.runtime.workers.market_worker import MarketWorker
+from ltb.runtime.workers.market_regime_worker import MarketRegimeWorker
+
 from ltb.runtime.workers.scanner_worker import ScannerWorker
 from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
 from ltb.runtime.workers.ranking_worker import RankingWorker
@@ -20,8 +22,10 @@ from ltb.runtime.workers.portfolio_worker import PortfolioWorker
 from ltb.runtime.workers.trade_ledger_worker import TradeLedgerWorker
 from ltb.runtime.workers.strategy_performance_worker import StrategyPerformanceWorker
 from ltb.runtime.workers.strategy_kill_switch_worker import StrategyKillSwitchWorker
+
 from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
 from ltb.runtime.workers.risk_worker import RiskWorker
+
 from ltb.runtime.workers.analytics_worker import AnalyticsWorker
 from ltb.runtime.workers.alert_worker import AlertWorker
 from ltb.runtime.workers.killswitch_worker import KillSwitchWorker
@@ -71,6 +75,9 @@ def main():
 
         # market data
         MarketWorker(bus),
+
+        # market regime detection
+        MarketRegimeWorker(bus),
 
         # scanning
         ScannerWorker(bus),
