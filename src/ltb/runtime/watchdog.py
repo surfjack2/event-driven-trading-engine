@@ -5,6 +5,7 @@ from ltb.runtime.queue_bus import QueueBus
 
 from ltb.runtime.workers.market_worker import MarketWorker
 from ltb.runtime.workers.market_regime_worker import MarketRegimeWorker
+from ltb.runtime.workers.exposure_worker import ExposureWorker
 
 from ltb.runtime.workers.scanner_worker import ScannerWorker
 from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
@@ -41,7 +42,6 @@ def start_worker(worker):
         while True:
 
             try:
-
                 worker.run()
 
             except Exception as e:
@@ -78,6 +78,9 @@ def main():
 
         # market regime detection
         MarketRegimeWorker(bus),
+
+        # exposure control
+        ExposureWorker(bus),
 
         # scanning
         ScannerWorker(bus),

@@ -26,6 +26,8 @@ class ExecutionWorker:
 
         self.disabled_strategies = set()
 
+        self.exposure_limit = 1.0
+
         self.risk = RiskEngine()
         self.sizer = PositionSizer()
 
@@ -41,12 +43,28 @@ class ExecutionWorker:
         self.bus.subscribe("strategy.disabled", self.on_strategy_disabled)
         self.bus.subscribe("strategy.enabled", self.on_strategy_enabled)
 
+        self.bus.subscribe("portfolio.exposure", self.on_exposure_update)
+
     def run(self):
 
         logger.info("[EXECUTION WORKER STARTED]")
 
         while True:
             time.sleep(1)
+
+    def on_exposure_update(self, data):
+
+        exposure = data.get("exposure")
+
+        if exposure is None:
+            return
+
+        self.exposure_limit = exposure
+
+        logger.info(
+            "[EXECUTION] exposure limit updated %.2f",
+            exposure
+        )
 
     def on_portfolio_update(self, data):
 
@@ -146,10 +164,14 @@ class ExecutionWorker:
 
                 return
 
-            if len(self.positions) >= self.MAX_GLOBAL_POSITIONS:
+            max_allowed = int(self.MAX_GLOBAL_POSITIONS * self.exposure_limit)
+
+            if len(self.positions) >= max_allowed:
 
                 logger.warning(
-                    "[EXECUTION] global position limit reached"
+                    "[EXECUTION] exposure limit reached current=%s max=%s",
+                    len(self.positions),
+                    max_allowed
                 )
 
                 return
