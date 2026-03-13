@@ -1,10 +1,15 @@
-venv/
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Virtual env
+venv/
+
+# Environment
 .env
-logs/*.loglogs/
+
+# Logs
+logs/
 *.log
-__pycache__/
-*.pyc

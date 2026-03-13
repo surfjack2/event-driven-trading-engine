@@ -1,11 +1,15 @@
 import threading
 import traceback
 from collections import defaultdict
+from queue import Queue, Full, Empty
 
 from ltb.system.logger import logger
 
 
 class QueueBus:
+
+    MAX_QUEUE_SIZE = 10000
+    WORKER_COUNT = 4
 
     def __init__(self):
 
@@ -13,7 +17,24 @@ class QueueBus:
 
         self.lock = threading.Lock()
 
+        self.queue = Queue(maxsize=self.MAX_QUEUE_SIZE)
+
+        self.workers = []
+
         logger.info("[EVENT BUS INITIALIZED]")
+
+        # worker thread 시작
+        for i in range(self.WORKER_COUNT):
+
+            t = threading.Thread(
+                target=self._worker_loop,
+                daemon=True,
+                name=f"eventbus-worker-{i}",
+            )
+
+            t.start()
+
+            self.workers.append(t)
 
     def subscribe(self, topic, handler):
 
@@ -41,14 +62,32 @@ class QueueBus:
 
         for handler in handlers:
 
-            # handler 실행을 별도 thread에서 처리
-            t = threading.Thread(
-                target=self._safe_execute,
-                args=(topic, handler, data),
-                daemon=True,
-            )
+            try:
 
-            t.start()
+                self.queue.put_nowait((topic, handler, data))
+
+            except Full:
+
+                logger.warning(
+                    "[BUS] queue overflow dropping event topic=%s",
+                    topic,
+                )
+
+    def _worker_loop(self):
+
+        while True:
+
+            try:
+
+                topic, handler, data = self.queue.get(timeout=1)
+
+                self._safe_execute(topic, handler, data)
+
+                self.queue.task_done()
+
+            except Empty:
+
+                continue
 
     def _safe_execute(self, topic, handler, data):
 

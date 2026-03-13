@@ -10,12 +10,15 @@ class SignalRankingWorker:
     def __init__(self, bus):
 
         self.bus = bus
-        self.buffer = {}
+
+        # 🔴 list buffer로 변경
+        self.buffer = []
 
         self.bus.subscribe(
             "strategy.signal",
             self.on_signal
         )
+
 
     def run(self):
 
@@ -28,29 +31,31 @@ class SignalRankingWorker:
                 continue
 
             ranked = sorted(
-                self.buffer.items(),
-                key=lambda x: x[1]["score"],
+                self.buffer,
+                key=lambda x: x["score"],
                 reverse=True
             )
 
             published = 0
 
-            for symbol, data in ranked:
+            for data in ranked:
 
                 score = data["score"]
 
                 if score <= 0:
                     continue
 
+                signal = data["signal"]
+
                 logger.info(
                     "[RANKING] passed %s score=%.2f",
-                    symbol,
+                    signal["symbol"],
                     score
                 )
 
                 self.bus.publish(
                     "ranked.signal",
-                    data["signal"]
+                    signal
                 )
 
                 published += 1
@@ -61,6 +66,7 @@ class SignalRankingWorker:
             self.buffer.clear()
 
             time.sleep(self.RANK_INTERVAL)
+
 
     def on_signal(self, signal):
 
@@ -91,7 +97,8 @@ class SignalRankingWorker:
         if rsi:
             score += rsi / 20
 
-        self.buffer[symbol] = {
+        self.buffer.append({
+            "symbol": symbol,
             "score": score,
             "signal": signal
-        }
+        })

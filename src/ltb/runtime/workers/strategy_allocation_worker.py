@@ -8,31 +8,25 @@ class StrategyAllocationWorker:
 
         self.bus = bus
 
-        # 전략별 자본 배분
         self.allocations = {
             "simple_momentum": 0.3,
             "volume_breakout": 0.3,
             "turtle": 0.4,
         }
 
-        # 전략 상태
         self.strategy_enabled = {
             "simple_momentum": True,
             "volume_breakout": True,
             "turtle": True,
         }
 
-        # 전략 누적 pnl
         self.strategy_pnl = {}
-
-        # 전략 성과 통계
         self.strategy_stats = {}
 
-        # 🔴 변경된 부분
         self.bus.subscribe("liquidity.signal", self.on_signal)
-
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
         self.bus.subscribe("strategy.performance", self.on_performance)
+
 
     def run(self):
 
@@ -41,6 +35,7 @@ class StrategyAllocationWorker:
         while True:
             time.sleep(5)
 
+
     def on_signal(self, signal):
 
         strategy = signal.get("strategy")
@@ -48,7 +43,8 @@ class StrategyAllocationWorker:
         if not self.strategy_enabled.get(strategy, True):
 
             logger.info(
-                f"[ALLOCATION] strategy disabled {strategy}"
+                "[ALLOCATION] strategy disabled %s",
+                strategy
             )
             return
 
@@ -57,10 +53,13 @@ class StrategyAllocationWorker:
         signal["allocation_weight"] = weight
 
         logger.info(
-            f"[ALLOCATION] passing signal strategy={strategy} weight={weight}"
+            "[ALLOCATION] passing signal strategy=%s weight=%s",
+            strategy,
+            weight
         )
 
         self.bus.publish("allocation.signal", signal)
+
 
     def on_trade_closed(self, trade):
 
@@ -71,22 +70,25 @@ class StrategyAllocationWorker:
 
         pnl = trade.get("pnl", 0)
 
-        current = self.strategy_pnl.get(strategy, 0)
-
-        self.strategy_pnl[strategy] = current + pnl
-
-        logger.info(
-            f"[ALLOCATION] strategy pnl update {strategy} pnl={self.strategy_pnl[strategy]}"
+        self.strategy_pnl[strategy] = (
+            self.strategy_pnl.get(strategy, 0) + pnl
         )
 
-        # 손실 전략 자동 OFF
+        logger.info(
+            "[ALLOCATION] strategy pnl update %s pnl=%s",
+            strategy,
+            self.strategy_pnl[strategy]
+        )
+
         if self.strategy_pnl[strategy] < -100000:
 
             logger.error(
-                f"[ALLOCATION] disabling strategy {strategy}"
+                "[ALLOCATION] disabling strategy %s",
+                strategy
             )
 
             self.strategy_enabled[strategy] = False
+
 
     def on_performance(self, data):
 
@@ -96,15 +98,15 @@ class StrategyAllocationWorker:
         self.strategy_stats[strategy] = stats
 
         logger.info(
-            f"[ALLOCATION] performance update {strategy} {stats}"
+            "[ALLOCATION] performance update %s %s",
+            strategy,
+            stats
         )
 
         self.rebalance()
 
-    def rebalance(self):
 
-        if not self.strategy_stats:
-            return
+    def rebalance(self):
 
         scores = {}
 
@@ -120,15 +122,20 @@ class StrategyAllocationWorker:
 
             scores[strategy] = pf
 
-        total = sum(scores.values())
-
-        if total == 0:
+        if not scores:
             return
 
-        for strategy in scores:
+        total = sum(scores.values())
 
-            new_weight = scores[strategy] / total
+        new_allocations = {}
 
-            self.allocations[strategy] = round(new_weight, 2)
+        for strategy, score in scores.items():
 
-        logger.info(f"[ALLOCATION] new weights {self.allocations}")
+            new_allocations[strategy] = round(score / total, 2)
+
+        self.allocations.update(new_allocations)
+
+        logger.info(
+            "[ALLOCATION] normalized weights %s",
+            self.allocations
+        )
