@@ -93,6 +93,12 @@ class StrategyWorker:
 
         for signal in signals:
 
+            # indicator 정보를 signal에 병합
+            signal["rsi"] = event.get("rsi")
+            signal["volume"] = event.get("volume")
+            signal["volume_ma"] = event.get("volume_ma")
+            signal["vwap"] = event.get("vwap")
+
             logger.info(
                 f"[STRATEGY] signal generated {signal}"
             )
