@@ -19,6 +19,7 @@ from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
 from ltb.runtime.workers.portfolio_worker import PortfolioWorker
 from ltb.runtime.workers.trade_ledger_worker import TradeLedgerWorker
 from ltb.runtime.workers.strategy_performance_worker import StrategyPerformanceWorker
+from ltb.runtime.workers.strategy_kill_switch_worker import StrategyKillSwitchWorker
 from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
 from ltb.runtime.workers.risk_worker import RiskWorker
 from ltb.runtime.workers.analytics_worker import AnalyticsWorker
@@ -103,6 +104,7 @@ def main():
 
         # performance tracking
         StrategyPerformanceWorker(bus),
+        StrategyKillSwitchWorker(bus),
 
         # risk & exit
         TrailingStopWorker(bus),
