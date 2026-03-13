@@ -11,6 +11,7 @@ from ltb.indicator.indicator_worker import IndicatorWorker
 
 from ltb.runtime.workers.strategy_worker import StrategyWorker
 from ltb.runtime.workers.signal_ranking_worker import SignalRankingWorker
+from ltb.runtime.workers.liquidity_filter_worker import LiquidityFilterWorker
 from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
 
 from ltb.runtime.workers.execution_worker import ExecutionWorker
@@ -85,6 +86,9 @@ def main():
 
         # signal quality ranking
         SignalRankingWorker(bus),
+
+        # liquidity filter
+        LiquidityFilterWorker(bus),
 
         # strategy capital allocation
         StrategyAllocationWorker(bus),

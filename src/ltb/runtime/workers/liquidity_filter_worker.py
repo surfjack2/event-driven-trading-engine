@@ -1,4 +1,5 @@
 from ltb.system.logger import logger
+import time
 
 
 class LiquidityFilterWorker:
@@ -19,6 +20,10 @@ class LiquidityFilterWorker:
     def run(self):
 
         logger.info("[LIQUIDITY FILTER WORKER STARTED]")
+
+        # watchdog restart 방지
+        while True:
+            time.sleep(1)
 
     def on_signal(self, signal):
 
