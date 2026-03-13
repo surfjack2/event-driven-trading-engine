@@ -4,21 +4,16 @@ from ltb.system.logger import logger
 
 class StrategyAllocationWorker:
 
+    MIN_WEIGHT = 0.05
+    MAX_WEIGHT = 0.6
+
     def __init__(self, bus):
 
         self.bus = bus
 
-        self.allocations = {
-            "simple_momentum": 0.3,
-            "volume_breakout": 0.3,
-            "turtle": 0.4,
-        }
+        self.allocations = {}
 
-        self.strategy_enabled = {
-            "simple_momentum": True,
-            "volume_breakout": True,
-            "turtle": True,
-        }
+        self.strategy_enabled = {}
 
         self.strategy_pnl = {}
         self.strategy_stats = {}
@@ -27,14 +22,12 @@ class StrategyAllocationWorker:
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
         self.bus.subscribe("strategy.performance", self.on_performance)
 
-
     def run(self):
 
         logger.info("[STRATEGY ALLOCATION WORKER STARTED]")
 
         while True:
             time.sleep(5)
-
 
     def on_signal(self, signal):
 
@@ -59,7 +52,6 @@ class StrategyAllocationWorker:
         )
 
         self.bus.publish("allocation.signal", signal)
-
 
     def on_trade_closed(self, trade):
 
@@ -89,6 +81,10 @@ class StrategyAllocationWorker:
 
             self.strategy_enabled[strategy] = False
 
+            self.bus.publish(
+                "strategy.disabled",
+                {"strategy": strategy}
+            )
 
     def on_performance(self, data):
 
@@ -97,6 +93,8 @@ class StrategyAllocationWorker:
 
         self.strategy_stats[strategy] = stats
 
+        self.strategy_enabled.setdefault(strategy, True)
+
         logger.info(
             "[ALLOCATION] performance update %s %s",
             strategy,
@@ -104,7 +102,6 @@ class StrategyAllocationWorker:
         )
 
         self.rebalance()
-
 
     def rebalance(self):
 
@@ -115,12 +112,12 @@ class StrategyAllocationWorker:
             if not self.strategy_enabled.get(strategy, True):
                 continue
 
-            pf = stat.get("profit_factor", 0)
+            score = stat.get("score", 0)
 
-            if pf <= 0:
-                pf = 0.1
+            if score <= 0:
+                score = 0.1
 
-            scores[strategy] = pf
+            scores[strategy] = score
 
         if not scores:
             return
@@ -131,7 +128,11 @@ class StrategyAllocationWorker:
 
         for strategy, score in scores.items():
 
-            new_allocations[strategy] = round(score / total, 2)
+            w = score / total
+
+            w = max(self.MIN_WEIGHT, min(self.MAX_WEIGHT, w))
+
+            new_allocations[strategy] = round(w, 2)
 
         self.allocations.update(new_allocations)
 

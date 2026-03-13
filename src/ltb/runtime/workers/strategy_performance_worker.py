@@ -10,13 +10,10 @@ class StrategyPerformanceWorker:
 
         self.bus = bus
 
-        # 전략별 거래 기록
         self.trades = defaultdict(list)
 
-        # 전략별 통계
         self.stats = {}
 
-        # 이벤트 수정
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
 
     def run(self):
@@ -59,15 +56,25 @@ class StrategyPerformanceWorker:
 
             profit_factor = profit / loss if loss > 0 else 0
 
+            avg_return = total / len(pnl_list)
+
+            score = (
+                profit_factor * 0.5
+                + win_rate * 0.3
+                + avg_return * 0.00001
+            )
+
             self.stats[strategy] = {
                 "trades": len(pnl_list),
                 "pnl": total,
                 "win_rate": win_rate,
                 "profit_factor": profit_factor,
+                "avg_return": avg_return,
+                "score": score
             }
 
             logger.info(
-                f"[STRATEGY PERF] {strategy} trades={len(pnl_list)} pnl={total} win_rate={win_rate:.2f} pf={profit_factor:.2f}"
+                f"[STRATEGY PERF] {strategy} trades={len(pnl_list)} pnl={total} win_rate={win_rate:.2f} pf={profit_factor:.2f} score={score:.2f}"
             )
 
             self.bus.publish(

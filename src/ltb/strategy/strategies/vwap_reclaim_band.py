@@ -5,6 +5,10 @@ class VWAPReclaimBandStrategy:
 
     name = "vwap_reclaim"
 
+    def __init__(self, config=None):
+
+        self.config = config or {}
+
     def evaluate(self, event):
 
         symbol = event["symbol"]

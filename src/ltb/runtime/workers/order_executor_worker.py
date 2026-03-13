@@ -15,7 +15,7 @@ class OrderExecutorWorker:
 
         self.queue.append(order)
 
-        logger.info(f"[ORDER EXECUTOR] queued order {order}")
+        logger.info("[ORDER EXECUTOR] queued order %s", order)
 
     def run(self):
 
@@ -29,7 +29,7 @@ class OrderExecutorWorker:
 
             order = self.queue.pop(0)
 
-            logger.info(f"[ORDER EXECUTOR] executing order {order}")
+            logger.info("[ORDER EXECUTOR] executing order %s", order)
 
             filled = {
                 "symbol": order["symbol"],
