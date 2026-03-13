@@ -36,7 +36,9 @@ class ExecutionWorker:
 
         self.lock = threading.Lock()
 
-        self.bus.subscribe("allocation.signal", self.on_signal)
+        # Position Intent Engine output
+        self.bus.subscribe("intent.signal", self.on_signal)
+
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
         self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
 

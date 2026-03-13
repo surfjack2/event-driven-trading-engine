@@ -16,6 +16,7 @@ from ltb.runtime.workers.strategy_worker import StrategyWorker
 from ltb.runtime.workers.signal_ranking_worker import SignalRankingWorker
 from ltb.runtime.workers.liquidity_filter_worker import LiquidityFilterWorker
 from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
+from ltb.runtime.workers.position_intent_worker import PositionIntentWorker
 
 from ltb.runtime.workers.execution_worker import ExecutionWorker
 from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
@@ -79,7 +80,7 @@ def main():
         # market regime detection
         MarketRegimeWorker(bus),
 
-        # exposure control
+        # portfolio exposure control
         ExposureWorker(bus),
 
         # scanning
@@ -103,6 +104,9 @@ def main():
 
         # strategy capital allocation
         StrategyAllocationWorker(bus),
+
+        # position intent resolution
+        PositionIntentWorker(bus),
 
         # execution pipeline
         ExecutionWorker(bus),
