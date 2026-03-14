@@ -4,6 +4,8 @@ from ltb.system.logger import logger
 
 class PortfolioWorker:
 
+    TIME_STOP_SECONDS = 3600
+
     def __init__(self, event_bus):
 
         self.event_bus = event_bus
@@ -24,7 +26,37 @@ class PortfolioWorker:
         logger.info("[PORTFOLIO WORKER STARTED]")
 
         while True:
-            time.sleep(1)
+
+            now = time.time()
+
+            for symbol, pos in list(self.positions.items()):
+
+                entry_time = pos.get("entry_time")
+
+                if not entry_time:
+                    continue
+
+                hold_time = now - entry_time
+
+                if hold_time > self.TIME_STOP_SECONDS:
+
+                    logger.info(
+                        "[TIME STOP EXIT] symbol=%s hold_time=%s",
+                        symbol,
+                        hold_time
+                    )
+
+                    order = {
+                        "symbol": symbol,
+                        "side": "SELL",
+                        "price": pos["entry_price"],
+                        "qty": pos["qty"],
+                        "strategy": pos.get("strategy")
+                    }
+
+                    self.event_bus.publish("order.request", order)
+
+            time.sleep(5)
 
     def handle_fill(self, fill):
 
@@ -38,6 +70,7 @@ class PortfolioWorker:
                 "entry_price": fill["price"],
                 "qty": fill["qty"],
                 "highest_price": fill["price"],
+                "entry_time": time.time(),
                 "strategy": strategy
             }
 
@@ -52,7 +85,6 @@ class PortfolioWorker:
                 position
             )
 
-            # 🔴 strategy 추가
             self.event_bus.publish(
                 "portfolio.update",
                 {
@@ -88,7 +120,6 @@ class PortfolioWorker:
                     trade
                 )
 
-                # 🔴 strategy 추가
                 self.event_bus.publish(
                     "portfolio.update",
                     {

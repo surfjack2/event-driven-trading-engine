@@ -8,6 +8,7 @@ from ltb.system.logger import logger
 class LiquidityRegimeWorker:
 
     WINDOW = 200
+    REGIME_CONFIRM = 5
 
     def __init__(self, bus):
 
@@ -17,6 +18,8 @@ class LiquidityRegimeWorker:
         self.volatility = deque(maxlen=self.WINDOW)
 
         self.current_regime = "NORMAL"
+        self.candidate_regime = None
+        self.candidate_count = 0
 
         self.bus.subscribe(
             "market.indicator",
@@ -67,6 +70,16 @@ class LiquidityRegimeWorker:
 
         elif latest_turnover > avg_turnover * 1.5:
             regime = "EXPANSION"
+
+        if regime != self.candidate_regime:
+            self.candidate_regime = regime
+            self.candidate_count = 1
+            return
+
+        self.candidate_count += 1
+
+        if self.candidate_count < self.REGIME_CONFIRM:
+            return
 
         if regime == self.current_regime:
             return

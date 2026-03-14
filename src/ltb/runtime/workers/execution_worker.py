@@ -147,7 +147,6 @@ class ExecutionWorker:
 
         weight = signal.get("allocation_weight", 1.0)
 
-        # NEW
         alpha = signal.get("alpha_score", 1.0)
 
         now = time.time()
@@ -157,7 +156,11 @@ class ExecutionWorker:
 
         with self.lock:
 
-            if symbol in self.positions or symbol in self.pending_orders:
+            # 🔴 double guard
+            if symbol in self.positions:
+                return
+
+            if symbol in self.pending_orders:
                 return
 
             if len(self.positions) >= self.MAX_TOTAL_POSITIONS:
@@ -193,6 +196,10 @@ class ExecutionWorker:
                 return
 
             if not self.risk.check(symbol, qty, price):
+                return
+
+            # 🔴 마지막 race condition guard
+            if symbol in self.pending_orders:
                 return
 
             order = {

@@ -12,7 +12,6 @@ class SignalRankingWorker:
     def __init__(self, bus):
 
         self.bus = bus
-
         self.buffer = deque(maxlen=self.BUFFER_SIZE)
 
         self.bus.subscribe(
@@ -71,14 +70,12 @@ class SignalRankingWorker:
 
         score = self.alpha_score(signal)
 
+        signal["alpha_score"] = score
+
         self.buffer.append({
             "score": score,
             "signal": signal
         })
-
-    # -----------------------------
-    # Alpha scoring (multi-factor)
-    # -----------------------------
 
     def alpha_score(self, signal):
 
@@ -86,36 +83,32 @@ class SignalRankingWorker:
         ema = signal.get("ema")
         vwap = signal.get("vwap")
 
-        volume = signal.get("volume")
-        volume_ma = signal.get("volume_ma")
+        volume_ratio = signal.get("volume_ratio", 0)
+        price_change = signal.get("price_change", 0)
 
-        rsi = signal.get("rsi")
         atr = signal.get("atr")
 
         score = 0
 
-        # momentum factor
+        # momentum
         if price and ema:
             momentum = (price - ema) / ema
-            score += momentum * 150
+            score += momentum * 200
 
-        # VWAP displacement
+        # vwap displacement
         if price and vwap:
             vwap_gap = (price - vwap) / vwap
-            score += vwap_gap * 120
+            score += vwap_gap * 150
 
-        # volume expansion
-        if volume and volume_ma:
-            vol_ratio = volume / volume_ma
-            score += vol_ratio * 12
+        # volume impulse
+        score += volume_ratio * 25
 
-        # RSI trend strength
-        if rsi:
-            score += (rsi - 50) * 0.4
+        # price expansion
+        score += price_change * 300
 
-        # volatility normalization
+        # volatility penalty
         if atr and price:
             vol_factor = atr / price
-            score -= vol_factor * 80
+            score -= vol_factor * 120
 
         return score

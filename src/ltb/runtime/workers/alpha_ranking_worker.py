@@ -12,7 +12,6 @@ class AlphaRankingWorker:
     def __init__(self, bus):
 
         self.bus = bus
-
         self.scores = defaultdict(float)
 
         self.bus.subscribe(
@@ -80,59 +79,29 @@ class AlphaRankingWorker:
 
         score = 0
 
-        # -------------------------
-        # momentum
-        # -------------------------
-
+        # price momentum
         if prev_price:
-
             momentum = (price - prev_price) / prev_price
+            score += momentum * 400
 
-            score += momentum * 300
-
-
-        # -------------------------
-        # VWAP displacement
-        # -------------------------
-
+        # vwap displacement
         if vwap:
-
             vwap_gap = (price - vwap) / vwap
+            score += vwap_gap * 250
 
-            score += vwap_gap * 200
-
-
-        # -------------------------
-        # volume expansion
-        # -------------------------
-
+        # volume impulse
         if volume and volume_ma:
-
             vol_ratio = volume / volume_ma
+            score += vol_ratio * 30
 
-            score += vol_ratio * 20
-
-
-        # -------------------------
-        # turnover strength
-        # -------------------------
-
+        # turnover impulse
         if turnover_ma:
-
             turnover_ratio = turnover / turnover_ma
+            score += turnover_ratio * 40
 
-            score += turnover_ratio * 25
-
-
-        # -------------------------
         # volatility penalty
-        # -------------------------
-
         if atr and price:
-
             volatility = atr / price
-
-            score -= volatility * 150
-
+            score -= volatility * 180
 
         self.scores[symbol] += score

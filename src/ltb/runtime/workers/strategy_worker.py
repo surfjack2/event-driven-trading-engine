@@ -144,6 +144,7 @@ class StrategyWorker:
             signal["rsi"] = event.get("rsi")
             signal["volume"] = event.get("volume")
             signal["volume_ma"] = event.get("volume_ma")
+            signal["volume_ratio"] = event.get("volume_ratio")
 
             signal["vwap"] = event.get("vwap")
             signal["ema"] = event.get("ema")
