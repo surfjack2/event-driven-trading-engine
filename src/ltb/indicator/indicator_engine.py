@@ -13,6 +13,9 @@ class IndicatorEngine:
         self.ema_period = 20
         self.volume_ma_period = 20
 
+        # VWAP band multiplier
+        self.vwap_band_mult = 1.2
+
     def add_price(self, symbol, price, volume):
 
         if symbol not in self.prices:
@@ -106,7 +109,7 @@ class IndicatorEngine:
         return pv / total_volume
 
     # ==========================
-    # VWAP BANDS
+    # VWAP BANDS (ATR style)
     # ==========================
 
     def vwap_bands(self, symbol):
@@ -118,10 +121,13 @@ class IndicatorEngine:
 
         vwap = self.vwap(symbol)
 
+        # volatility proxy
         std = statistics.pstdev(prices)
 
-        upper = vwap + std
-        lower = vwap - std
+        band = std * self.vwap_band_mult
+
+        upper = vwap + band
+        lower = vwap - band
 
         return upper, lower
 
