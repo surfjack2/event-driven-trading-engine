@@ -23,11 +23,14 @@ class StrategyAllocationWorker:
         self.strategy_stats = {}
 
         self.market_regime = "neutral"
+        self.liquidity_regime = "NORMAL"
 
         self.bus.subscribe("liquidity.signal", self.on_signal)
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
         self.bus.subscribe("strategy.performance", self.on_performance)
+
         self.bus.subscribe("market.regime", self.on_market_regime)
+        self.bus.subscribe("market.liquidity_regime", self.on_liquidity_regime)
 
     def run(self):
 
@@ -52,6 +55,22 @@ class StrategyAllocationWorker:
 
         self.rebalance()
 
+    def on_liquidity_regime(self, data):
+
+        regime = data.get("regime")
+
+        if not regime:
+            return
+
+        self.liquidity_regime = regime
+
+        logger.info(
+            "[ALLOCATION] liquidity regime update %s",
+            regime
+        )
+
+        self.rebalance()
+
     def on_signal(self, signal):
 
         strategy = signal.get("strategy")
@@ -69,10 +88,11 @@ class StrategyAllocationWorker:
         signal["allocation_weight"] = weight
 
         logger.info(
-            "[ALLOCATION] passing signal strategy=%s weight=%s regime=%s",
+            "[ALLOCATION] passing signal strategy=%s weight=%s trend=%s liquidity=%s",
             strategy,
             weight,
-            self.market_regime
+            self.market_regime,
+            self.liquidity_regime
         )
 
         self.bus.publish("allocation.signal", signal)
@@ -146,7 +166,6 @@ class StrategyAllocationWorker:
 
             weights[strategy] = w
 
-        # normalization 재수행
         norm = sum(weights.values())
 
         for k in weights:
@@ -156,7 +175,8 @@ class StrategyAllocationWorker:
         self.allocations.update(weights)
 
         logger.info(
-            "[ALLOCATION] normalized weights %s regime=%s",
+            "[ALLOCATION] normalized weights %s trend=%s liquidity=%s",
             self.allocations,
-            self.market_regime
+            self.market_regime,
+            self.liquidity_regime
         )

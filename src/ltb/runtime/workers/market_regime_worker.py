@@ -7,9 +7,15 @@ from ltb.system.logger import logger
 
 class MarketRegimeWorker:
 
-    WINDOW = 50
-    SHORT_EMA = 10
-    LONG_EMA = 30
+    WINDOW = 300
+
+    SHORT_EMA = 20
+    LONG_EMA = 80
+
+    UPDATE_INTERVAL = 10
+
+    BULL_THRESHOLD = 0.003
+    BEAR_THRESHOLD = -0.003
 
     def __init__(self, bus):
 
@@ -19,8 +25,12 @@ class MarketRegimeWorker:
 
         self.current_regime = "unknown"
 
-        # FIX: event name
-        self.bus.subscribe("MARKET_TICK", self.on_tick)
+        self.last_update = 0
+
+        self.bus.subscribe(
+            "MARKET_TICK",
+            self.on_tick
+        )
 
     def run(self):
 
@@ -40,6 +50,13 @@ class MarketRegimeWorker:
 
         if len(self.prices) < self.LONG_EMA:
             return
+
+        now = time.time()
+
+        if now - self.last_update < self.UPDATE_INTERVAL:
+            return
+
+        self.last_update = now
 
         self.evaluate_regime()
 
@@ -71,16 +88,13 @@ class MarketRegimeWorker:
 
         diff = (ema_short - ema_long) / ema_long
 
-        if diff > 0.002:
-
+        if diff > self.BULL_THRESHOLD:
             regime = "bull"
 
-        elif diff < -0.002:
-
+        elif diff < self.BEAR_THRESHOLD:
             regime = "bear"
 
         else:
-
             regime = "sideways"
 
         if regime != self.current_regime:

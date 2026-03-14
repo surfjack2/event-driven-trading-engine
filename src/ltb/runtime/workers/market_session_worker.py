@@ -66,10 +66,7 @@ class MarketSessionWorker:
 
     def publish(self):
 
-        logger.info(
-            "[MARKET SESSION] %s",
-            self.session
-        )
+        logger.info("[MARKET SESSION] %s", self.session)
 
         self.bus.publish(
             "market.session",

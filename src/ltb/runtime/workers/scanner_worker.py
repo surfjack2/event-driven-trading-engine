@@ -10,11 +10,18 @@ class ScannerWorker:
     def __init__(self, bus):
 
         self.bus = bus
+
         self.prices = defaultdict(list)
+        self.session = "CLOSED"
 
         self.bus.subscribe(
             "scanner.rtv",
             self.on_market
+        )
+
+        self.bus.subscribe(
+            "market.session",
+            self.on_session
         )
 
     def run(self):
@@ -24,7 +31,14 @@ class ScannerWorker:
         while True:
             time.sleep(10)
 
+    def on_session(self, data):
+
+        self.session = data.get("session", "CLOSED")
+
     def on_market(self, data):
+
+        if self.session in ("MIDDAY", "CLOSED"):
+            return
 
         symbol = data.get("symbol")
         price = data.get("price")
@@ -71,7 +85,11 @@ class ScannerWorker:
             return
 
         logger.info(
-            f"[SCANNER] breakout {symbol} change={change:.2%} atr={atr:.4f}"
+            "[SCANNER] breakout %s change=%.2f%% atr=%.4f session=%s",
+            symbol,
+            change * 100,
+            atr,
+            self.session
         )
 
         self.bus.publish(

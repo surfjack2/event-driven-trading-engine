@@ -12,3 +12,7 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.41.0
 markdown
+pandas_market_calendars
+pytz
+numpy
+pandas

@@ -16,7 +16,7 @@ class SignalRankingWorker:
         self.buffer = deque(maxlen=self.BUFFER_SIZE)
 
         self.bus.subscribe(
-            "strategy.signal",
+            "dedup.signal",
             self.on_signal
         )
 
@@ -88,10 +88,6 @@ class SignalRankingWorker:
             "signal": signal
         })
 
-    # -------------------------
-    # Momentum scoring
-    # -------------------------
-
     def score_momentum(self, signal):
 
         price = signal.get("price")
@@ -114,10 +110,6 @@ class SignalRankingWorker:
 
         return score
 
-    # -------------------------
-    # VWAP reclaim scoring
-    # -------------------------
-
     def score_vwap_reclaim(self, signal):
 
         price = signal.get("price")
@@ -138,10 +130,6 @@ class SignalRankingWorker:
             score += (atr / price) * 200
 
         return score
-
-    # -------------------------
-    # VWAP bounce scoring
-    # -------------------------
 
     def score_vwap_bounce(self, signal):
 

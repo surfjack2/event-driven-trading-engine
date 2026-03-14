@@ -6,7 +6,7 @@ from ltb.system.logger import logger
 
 class PortfolioOptimizerWorker:
 
-    MAX_PORTFOLIO_SIZE = 5
+    MAX_TOTAL_POSITIONS = 8
     FLUSH_INTERVAL = 1.0
 
     STRATEGY_QUOTA = {
@@ -21,9 +21,12 @@ class PortfolioOptimizerWorker:
 
         self.intent_buffer = defaultdict(list)
 
+        self.positions = set()
+
         self.last_flush = time.time()
 
         self.bus.subscribe("filtered.intent", self.on_intent)
+        self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
     def run(self):
 
@@ -41,15 +44,32 @@ class PortfolioOptimizerWorker:
 
             time.sleep(0.2)
 
+    def on_portfolio_update(self, data):
+
+        symbol = data["symbol"]
+        position = data["position"]
+
+        if position > 0:
+            self.positions.add(symbol)
+        else:
+            self.positions.discard(symbol)
+
     def on_intent(self, signal):
 
         symbol = signal["symbol"]
+
+        if symbol in self.positions:
+            return
 
         self.intent_buffer[symbol].append(signal)
 
     def optimize(self):
 
         if not self.intent_buffer:
+            return
+
+        if len(self.positions) >= self.MAX_TOTAL_POSITIONS:
+            self.intent_buffer.clear()
             return
 
         candidates = []
@@ -97,7 +117,12 @@ class PortfolioOptimizerWorker:
 
         strategy_counts = defaultdict(int)
 
+        remaining_slots = self.MAX_TOTAL_POSITIONS - len(self.positions)
+
         for signal in candidates:
+
+            if remaining_slots <= 0:
+                break
 
             strategy = signal.get("strategy")
 
@@ -105,7 +130,7 @@ class PortfolioOptimizerWorker:
 
             quota = max(
                 1,
-                int(self.MAX_PORTFOLIO_SIZE * quota_ratio)
+                int(self.MAX_TOTAL_POSITIONS * quota_ratio)
             )
 
             if strategy_counts[strategy] >= quota:
@@ -115,8 +140,7 @@ class PortfolioOptimizerWorker:
 
             strategy_counts[strategy] += 1
 
-            if len(selected) >= self.MAX_PORTFOLIO_SIZE:
-                break
+            remaining_slots -= 1
 
         for signal in selected:
 

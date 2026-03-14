@@ -8,7 +8,8 @@ from ltb.risk.position_sizer import PositionSizer
 
 class ExecutionWorker:
 
-    MAX_GLOBAL_POSITIONS = 5
+    MAX_NEW_POSITIONS = 3
+    MAX_TOTAL_POSITIONS = 8
     MAX_STRATEGY_POSITIONS = 2
 
     ATR_MULTIPLIER = 2
@@ -135,9 +136,14 @@ class ExecutionWorker:
             if symbol in self.positions or symbol in self.pending_orders:
                 return
 
-            max_allowed = int(self.MAX_GLOBAL_POSITIONS * self.exposure_limit)
+            # 전체 포지션 제한
+            if len(self.positions) >= self.MAX_TOTAL_POSITIONS:
+                return
 
-            if len(self.positions) >= max_allowed:
+            # 신규 진입 슬롯 제한
+            active_new_orders = len(self.pending_orders)
+
+            if active_new_orders >= self.MAX_NEW_POSITIONS:
                 return
 
             strategy_pos = self.strategy_positions.get(strategy, 0)

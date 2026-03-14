@@ -18,8 +18,11 @@ class CorrelationFilterWorker:
 
         self.pending_signals = []
 
+        self.positions = set()
+
         self.bus.subscribe("market.price", self.on_price)
         self.bus.subscribe("intent.signal", self.on_signal)
+        self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
     def run(self):
 
@@ -39,6 +42,16 @@ class CorrelationFilterWorker:
         price = data["price"]
 
         self.prices[symbol].append(price)
+
+    def on_portfolio_update(self, data):
+
+        symbol = data["symbol"]
+        position = data["position"]
+
+        if position > 0:
+            self.positions.add(symbol)
+        else:
+            self.positions.discard(symbol)
 
     def on_signal(self, signal):
 
@@ -82,7 +95,9 @@ class CorrelationFilterWorker:
 
         r1 = np.diff(p1) / p1[:-1]
 
-        for s in selected:
+        compare_list = list(selected) + list(self.positions)
+
+        for s in compare_list:
 
             if s not in self.prices:
                 continue

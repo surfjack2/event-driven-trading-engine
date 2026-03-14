@@ -8,11 +8,13 @@ from ltb.runtime.workers.market_worker import MarketWorker
 from ltb.runtime.workers.market_calendar_worker import MarketCalendarWorker
 from ltb.runtime.workers.market_session_worker import MarketSessionWorker
 from ltb.runtime.workers.market_regime_worker import MarketRegimeWorker
+from ltb.runtime.workers.liquidity_regime_worker import LiquidityRegimeWorker
 from ltb.runtime.workers.exposure_worker import ExposureWorker
 
 # scanning
 from ltb.runtime.workers.relative_turnover_scanner_worker import RelativeTurnoverScannerWorker
 from ltb.runtime.workers.scanner_worker import ScannerWorker
+from ltb.runtime.workers.alpha_ranking_worker import AlphaRankingWorker
 from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
 
 # ranking
@@ -23,6 +25,7 @@ from ltb.indicator.indicator_worker import IndicatorWorker
 
 # strategy
 from ltb.runtime.workers.strategy_worker import StrategyWorker
+from ltb.runtime.workers.signal_dedup_worker import SignalDedupWorker
 from ltb.runtime.workers.signal_ranking_worker import SignalRankingWorker
 from ltb.runtime.workers.liquidity_filter_worker import LiquidityFilterWorker
 from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
@@ -104,12 +107,11 @@ def main():
 
         MarketWorker(bus),
 
-        # market calendar / session
         MarketCalendarWorker(bus),
         MarketSessionWorker(bus),
 
-        # market regime / exposure
         MarketRegimeWorker(bus),
+        LiquidityRegimeWorker(bus),
         ExposureWorker(bus),
 
         # =========================
@@ -118,6 +120,7 @@ def main():
 
         RelativeTurnoverScannerWorker(bus),
         ScannerWorker(bus),
+        AlphaRankingWorker(bus),
         UniverseScannerWorker(bus),
 
         # =========================
@@ -137,11 +140,9 @@ def main():
         # =========================
 
         StrategyWorker(bus),
-
+        SignalDedupWorker(bus),
         SignalRankingWorker(bus),
-
         LiquidityFilterWorker(bus),
-
         StrategyAllocationWorker(bus),
 
         # =========================
@@ -149,9 +150,7 @@ def main():
         # =========================
 
         PositionIntentWorker(bus),
-
         CorrelationFilterWorker(bus),
-
         PortfolioOptimizerWorker(bus),
 
         # =========================
@@ -183,27 +182,12 @@ def main():
         RiskWorker(bus),
 
         # =========================
-        # analytics
+        # analytics / system
         # =========================
 
         AnalyticsWorker(bus),
-
-        # =========================
-        # alerts
-        # =========================
-
         AlertWorker(bus),
-
-        # =========================
-        # emergency protection
-        # =========================
-
         KillSwitchWorker(bus),
-
-        # =========================
-        # engine health
-        # =========================
-
         HeartbeatWorker(bus),
 
     ]
