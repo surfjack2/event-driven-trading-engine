@@ -1,5 +1,6 @@
 import time
 from collections import deque
+import statistics
 
 from ltb.system.logger import logger
 
@@ -7,6 +8,8 @@ from ltb.system.logger import logger
 class MarketRegimeWorker:
 
     WINDOW = 50
+    SHORT_EMA = 10
+    LONG_EMA = 30
 
     def __init__(self, bus):
 
@@ -16,7 +19,8 @@ class MarketRegimeWorker:
 
         self.current_regime = "unknown"
 
-        self.bus.subscribe("market.tick", self.on_tick)
+        # FIX: event name
+        self.bus.subscribe("MARKET_TICK", self.on_tick)
 
     def run(self):
 
@@ -34,30 +38,49 @@ class MarketRegimeWorker:
 
         self.prices.append(price)
 
-        if len(self.prices) < self.WINDOW:
+        if len(self.prices) < self.LONG_EMA:
             return
 
         self.evaluate_regime()
 
+    def ema(self, data, period):
+
+        if len(data) < period:
+            return None
+
+        k = 2 / (period + 1)
+
+        ema = data[0]
+
+        for p in data[1:]:
+            ema = p * k + ema * (1 - k)
+
+        return ema
+
     def evaluate_regime(self):
 
-        first = self.prices[0]
-        last = self.prices[-1]
+        prices = list(self.prices)
 
-        change = (last - first) / first
+        ema_short = self.ema(prices, self.SHORT_EMA)
+        ema_long = self.ema(prices, self.LONG_EMA)
 
-        high = max(self.prices)
-        low = min(self.prices)
+        if ema_short is None or ema_long is None:
+            return
 
-        volatility = (high - low) / first
+        volatility = statistics.pstdev(prices) / prices[-1]
 
-        if change > 0.01:
+        diff = (ema_short - ema_long) / ema_long
+
+        if diff > 0.002:
+
             regime = "bull"
 
-        elif change < -0.01:
+        elif diff < -0.002:
+
             regime = "bear"
 
         else:
+
             regime = "sideways"
 
         if regime != self.current_regime:
@@ -65,10 +88,10 @@ class MarketRegimeWorker:
             self.current_regime = regime
 
             logger.info(
-                "[MARKET REGIME] regime=%s volatility=%.4f change=%.4f",
+                "[MARKET REGIME] regime=%s diff=%.4f vol=%.4f",
                 regime,
-                volatility,
-                change
+                diff,
+                volatility
             )
 
             self.bus.publish(

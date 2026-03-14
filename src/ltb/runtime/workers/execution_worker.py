@@ -36,8 +36,7 @@ class ExecutionWorker:
 
         self.lock = threading.Lock()
 
-        # Position Intent Engine output
-        self.bus.subscribe("intent.signal", self.on_signal)
+        self.bus.subscribe("optimized.signal", self.on_signal)
 
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
         self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
@@ -62,11 +61,6 @@ class ExecutionWorker:
             return
 
         self.exposure_limit = exposure
-
-        logger.info(
-            "[EXECUTION] exposure limit updated %.2f",
-            exposure
-        )
 
     def on_portfolio_update(self, data):
 
@@ -108,22 +102,11 @@ class ExecutionWorker:
 
         self.disabled_strategies.add(strategy)
 
-        logger.warning(
-            "[EXECUTION] strategy disabled %s",
-            strategy
-        )
-
     def on_strategy_enabled(self, data):
 
         strategy = data["strategy"]
 
-        if strategy in self.disabled_strategies:
-            self.disabled_strategies.remove(strategy)
-
-        logger.info(
-            "[EXECUTION] strategy re-enabled %s",
-            strategy
-        )
+        self.disabled_strategies.discard(strategy)
 
     def on_signal(self, signal):
 
@@ -137,12 +120,6 @@ class ExecutionWorker:
         now = time.time()
 
         if strategy in self.disabled_strategies:
-
-            logger.warning(
-                "[EXECUTION] blocked disabled strategy %s",
-                strategy
-            )
-
             return
 
         with self.lock:
@@ -150,43 +127,22 @@ class ExecutionWorker:
             last = self.last_signal_time.get(symbol, 0)
 
             if now - last < 5:
-                logger.debug("[EXECUTION] cooldown active %s", symbol)
                 return
 
             if now - self.last_global_order_time < self.GLOBAL_ORDER_INTERVAL:
-                logger.debug("[EXECUTION] global rate limit active")
                 return
 
             if symbol in self.positions or symbol in self.pending_orders:
-
-                logger.info(
-                    "[POSITION GATE] already holding or pending %s",
-                    symbol
-                )
-
                 return
 
             max_allowed = int(self.MAX_GLOBAL_POSITIONS * self.exposure_limit)
 
             if len(self.positions) >= max_allowed:
-
-                logger.warning(
-                    "[EXECUTION] exposure limit reached current=%s max=%s",
-                    len(self.positions),
-                    max_allowed
-                )
-
                 return
 
             strategy_pos = self.strategy_positions.get(strategy, 0)
 
             if strategy_pos >= self.MAX_STRATEGY_POSITIONS:
-
-                logger.warning(
-                    "[EXECUTION] strategy position limit reached %s",
-                    strategy
-                )
-
                 return
 
             self.last_signal_time[symbol] = now
@@ -199,15 +155,9 @@ class ExecutionWorker:
             qty = self.sizer.calculate(price, stop_price, weight)
 
             if qty <= 0:
-                logger.warning("[EXECUTION] qty calculated as 0")
                 return
 
             if not self.risk.check(symbol, qty, price):
-
-                logger.warning(
-                    "[EXECUTION] risk engine blocked order"
-                )
-
                 return
 
             order = {
@@ -225,11 +175,9 @@ class ExecutionWorker:
         self.bus.publish("order.request", order)
 
         logger.info(
-            "[EXECUTION] order request published symbol=%s price=%s atr=%s stop=%s qty=%s weight=%s",
+            "[EXECUTION] order request published symbol=%s price=%s qty=%s weight=%s",
             symbol,
             price,
-            atr,
-            stop_price,
             qty,
             weight
         )

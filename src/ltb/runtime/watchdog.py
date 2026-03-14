@@ -3,31 +3,51 @@ import time
 
 from ltb.runtime.queue_bus import QueueBus
 
+# market
 from ltb.runtime.workers.market_worker import MarketWorker
+from ltb.runtime.workers.market_calendar_worker import MarketCalendarWorker
+from ltb.runtime.workers.market_session_worker import MarketSessionWorker
 from ltb.runtime.workers.market_regime_worker import MarketRegimeWorker
 from ltb.runtime.workers.exposure_worker import ExposureWorker
 
+# scanning
 from ltb.runtime.workers.scanner_worker import ScannerWorker
 from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
+
+# ranking
 from ltb.runtime.workers.ranking_worker import RankingWorker
+
+# indicators
 from ltb.indicator.indicator_worker import IndicatorWorker
 
+# strategy
 from ltb.runtime.workers.strategy_worker import StrategyWorker
 from ltb.runtime.workers.signal_ranking_worker import SignalRankingWorker
 from ltb.runtime.workers.liquidity_filter_worker import LiquidityFilterWorker
 from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
-from ltb.runtime.workers.position_intent_worker import PositionIntentWorker
 
+# intent / portfolio
+from ltb.runtime.workers.position_intent_worker import PositionIntentWorker
+from ltb.runtime.workers.correlation_filter_worker import CorrelationFilterWorker
+from ltb.runtime.workers.portfolio_optimizer_worker import PortfolioOptimizerWorker
+
+# execution
 from ltb.runtime.workers.execution_worker import ExecutionWorker
 from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
+
+# portfolio
 from ltb.runtime.workers.portfolio_worker import PortfolioWorker
 from ltb.runtime.workers.trade_ledger_worker import TradeLedgerWorker
+
+# performance
 from ltb.runtime.workers.strategy_performance_worker import StrategyPerformanceWorker
 from ltb.runtime.workers.strategy_kill_switch_worker import StrategyKillSwitchWorker
 
+# risk
 from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
 from ltb.runtime.workers.risk_worker import RiskWorker
 
+# system
 from ltb.runtime.workers.analytics_worker import AnalyticsWorker
 from ltb.runtime.workers.alert_worker import AlertWorker
 from ltb.runtime.workers.killswitch_worker import KillSwitchWorker
@@ -59,7 +79,10 @@ def start_worker(worker):
 
     logger.info(f"[STARTING WORKER] {worker.__class__.__name__}")
 
-    t = threading.Thread(target=run_worker, daemon=True)
+    t = threading.Thread(
+        target=run_worker,
+        daemon=True
+    )
 
     t.start()
 
@@ -74,66 +97,111 @@ def main():
 
     workers = [
 
-        # market data
+        # =========================
+        # market
+        # =========================
+
         MarketWorker(bus),
 
-        # market regime detection
-        MarketRegimeWorker(bus),
+        # market calendar / session
+        MarketCalendarWorker(bus),
+        MarketSessionWorker(bus),
 
-        # portfolio exposure control
+        # market regime / exposure
+        MarketRegimeWorker(bus),
         ExposureWorker(bus),
 
+        # =========================
         # scanning
+        # =========================
+
         ScannerWorker(bus),
         UniverseScannerWorker(bus),
 
-        # symbol ranking
+        # =========================
+        # ranking
+        # =========================
+
         RankingWorker(bus),
 
-        # indicator calculation
+        # =========================
+        # indicators
+        # =========================
+
         IndicatorWorker(bus),
 
-        # strategy evaluation
+        # =========================
+        # strategy
+        # =========================
+
         StrategyWorker(bus),
 
-        # signal quality ranking
         SignalRankingWorker(bus),
 
-        # liquidity filter
         LiquidityFilterWorker(bus),
 
-        # strategy capital allocation
         StrategyAllocationWorker(bus),
 
-        # position intent resolution
+        # =========================
+        # intent layer
+        # =========================
+
         PositionIntentWorker(bus),
 
-        # execution pipeline
+        CorrelationFilterWorker(bus),
+
+        PortfolioOptimizerWorker(bus),
+
+        # =========================
+        # execution
+        # =========================
+
         ExecutionWorker(bus),
         OrderExecutorWorker(bus),
 
-        # portfolio management
+        # =========================
+        # portfolio
+        # =========================
+
         PortfolioWorker(bus),
         TradeLedgerWorker(bus),
 
-        # performance tracking
+        # =========================
+        # performance
+        # =========================
+
         StrategyPerformanceWorker(bus),
         StrategyKillSwitchWorker(bus),
 
-        # risk & exit
+        # =========================
+        # risk
+        # =========================
+
         TrailingStopWorker(bus),
         RiskWorker(bus),
 
+        # =========================
         # analytics
+        # =========================
+
         AnalyticsWorker(bus),
 
+        # =========================
         # alerts
+        # =========================
+
         AlertWorker(bus),
 
+        # =========================
         # emergency protection
+        # =========================
+
         KillSwitchWorker(bus),
 
-        # engine health monitoring
+        # =========================
+        # engine health
+        # =========================
+
         HeartbeatWorker(bus),
 
     ]
