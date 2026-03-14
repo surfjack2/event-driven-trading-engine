@@ -10,6 +10,9 @@ class StrategyWorker:
     SIGNAL_COOLDOWN = 3.0
     EXIT_COOLDOWN = 30.0
 
+    MIN_VOLUME_RATIO = 0.3
+    MIN_PRICE_MOVE = 0.0005
+
     def __init__(self, bus):
 
         self.bus = bus
@@ -81,8 +84,7 @@ class StrategyWorker:
 
         if position <= 0:
 
-            if symbol in self.positions:
-                del self.positions[symbol]
+            self.positions.pop(symbol, None)
 
             self.last_exit_time[symbol] = time.time()
 
@@ -92,15 +94,11 @@ class StrategyWorker:
 
     def on_order_request(self, order):
 
-        symbol = order["symbol"]
-        self.pending_orders.add(symbol)
+        self.pending_orders.add(order["symbol"])
 
     def on_order_filled(self, order):
 
-        symbol = order["symbol"]
-
-        if symbol in self.pending_orders:
-            self.pending_orders.remove(symbol)
+        self.pending_orders.discard(order["symbol"])
 
     def on_market(self, event):
 
@@ -122,16 +120,21 @@ class StrategyWorker:
         if symbol in self.pending_orders:
             return
 
-        now = time.time()
+        volume_ratio = event.get("volume_ratio", 0)
+        price_change = abs(event.get("price_change", 0))
 
-        last_exit = self.last_exit_time.get(symbol, 0)
-
-        if now - last_exit < self.EXIT_COOLDOWN:
+        if volume_ratio < self.MIN_VOLUME_RATIO:
             return
 
-        last = self.last_signal_time.get(symbol, 0)
+        if price_change < self.MIN_PRICE_MOVE:
+            return
 
-        if now - last < self.SIGNAL_COOLDOWN:
+        now = time.time()
+
+        if now - self.last_exit_time.get(symbol, 0) < self.EXIT_COOLDOWN:
+            return
+
+        if now - self.last_signal_time.get(symbol, 0) < self.SIGNAL_COOLDOWN:
             return
 
         signals = self.engine.evaluate(event)
@@ -144,7 +147,7 @@ class StrategyWorker:
             signal["rsi"] = event.get("rsi")
             signal["volume"] = event.get("volume")
             signal["volume_ma"] = event.get("volume_ma")
-            signal["volume_ratio"] = event.get("volume_ratio")
+            signal["volume_ratio"] = volume_ratio
 
             signal["vwap"] = event.get("vwap")
             signal["ema"] = event.get("ema")
@@ -154,14 +157,8 @@ class StrategyWorker:
             signal["price_change"] = event.get("price_change")
             signal["volatility"] = event.get("volatility")
 
-            logger.info(
-                "[STRATEGY] signal generated %s",
-                signal
-            )
+            logger.info("[STRATEGY] signal generated %s", signal)
 
-            self.bus.publish(
-                "strategy.signal",
-                signal
-            )
+            self.bus.publish("strategy.signal", signal)
 
         self.last_signal_time[symbol] = now

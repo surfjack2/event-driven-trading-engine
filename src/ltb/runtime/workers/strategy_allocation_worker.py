@@ -25,7 +25,7 @@ class StrategyAllocationWorker:
         self.market_regime = "neutral"
         self.liquidity_regime = "NORMAL"
 
-        self.bus.subscribe("liquidity.signal", self.on_signal)
+        self.bus.subscribe("strategy.signal", self.on_signal)
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
         self.bus.subscribe("strategy.performance", self.on_performance)
 
@@ -48,10 +48,7 @@ class StrategyAllocationWorker:
 
         self.market_regime = regime
 
-        logger.info(
-            "[ALLOCATION] market regime update %s",
-            regime
-        )
+        logger.info("[ALLOCATION] market regime update %s", regime)
 
         self.rebalance()
 
@@ -64,10 +61,7 @@ class StrategyAllocationWorker:
 
         self.liquidity_regime = regime
 
-        logger.info(
-            "[ALLOCATION] liquidity regime update %s",
-            regime
-        )
+        logger.info("[ALLOCATION] liquidity regime update %s", regime)
 
         self.rebalance()
 
@@ -76,24 +70,11 @@ class StrategyAllocationWorker:
         strategy = signal.get("strategy")
 
         if not self.strategy_enabled.get(strategy, True):
-
-            logger.info(
-                "[ALLOCATION] strategy disabled %s",
-                strategy
-            )
             return
 
         weight = self.allocations.get(strategy, 0.1)
 
         signal["allocation_weight"] = weight
-
-        logger.info(
-            "[ALLOCATION] passing signal strategy=%s weight=%s trend=%s liquidity=%s",
-            strategy,
-            weight,
-            self.market_regime,
-            self.liquidity_regime
-        )
 
         self.bus.publish("allocation.signal", signal)
 
@@ -112,10 +93,7 @@ class StrategyAllocationWorker:
 
         if self.strategy_pnl[strategy] < -100000:
 
-            logger.error(
-                "[ALLOCATION] disabling strategy %s",
-                strategy
-            )
+            logger.error("[ALLOCATION] disabling strategy %s", strategy)
 
             self.strategy_enabled[strategy] = False
 

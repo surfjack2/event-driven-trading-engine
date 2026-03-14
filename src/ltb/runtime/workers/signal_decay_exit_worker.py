@@ -4,13 +4,15 @@ from ltb.system.logger import logger
 
 class SignalDecayExitWorker:
 
+    MIN_HOLD_SECONDS = 20
+
     def __init__(self, bus):
 
         self.bus = bus
 
         self.positions = {}
+        self.entry_time = {}
 
-        # 주문 충돌 방지
         self.pending_orders = set()
 
         self.bus.subscribe("POSITION_OPENED", self.on_open)
@@ -32,13 +34,14 @@ class SignalDecayExitWorker:
         symbol = position["symbol"]
 
         self.positions[symbol] = position
+        self.entry_time[symbol] = time.time()
 
     def on_close(self, position):
 
         symbol = position["symbol"]
 
-        if symbol in self.positions:
-            del self.positions[symbol]
+        self.positions.pop(symbol, None)
+        self.entry_time.pop(symbol, None)
 
         self.pending_orders.discard(symbol)
 
@@ -55,8 +58,12 @@ class SignalDecayExitWorker:
         if symbol not in self.positions:
             return
 
-        # pending 주문 있으면 exit 금지
         if symbol in self.pending_orders:
+            return
+
+        entry_time = self.entry_time.get(symbol, 0)
+
+        if time.time() - entry_time < self.MIN_HOLD_SECONDS:
             return
 
         price = data.get("price")

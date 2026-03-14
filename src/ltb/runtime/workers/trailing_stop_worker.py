@@ -1,27 +1,28 @@
-from ltb.system.logger import logger
 import time
+from ltb.system.logger import logger
 
 
 class TrailingStopWorker:
+
+    ATR_MULTIPLIER = 2
+    MIN_HOLD_SECONDS = 20
 
     def __init__(self, event_bus):
 
         self.event_bus = event_bus
 
         self.positions = {}
+        self.entry_time = {}
+
         self.atr = {}
 
-        # 주문 충돌 방지
         self.pending_orders = set()
-
-        # ATR multiplier
-        self.atr_multiplier = 2
 
         self.event_bus.subscribe("POSITION_OPENED", self.handle_position)
         self.event_bus.subscribe("POSITION_CLOSED", self.handle_close)
 
-        self.event_bus.subscribe("MARKET_TICK", self.handle_price)
         self.event_bus.subscribe("market.indicator", self.handle_indicator)
+        self.event_bus.subscribe("MARKET_TICK", self.handle_price)
 
         self.event_bus.subscribe("ORDER_FILLED", self.handle_filled)
 
@@ -42,6 +43,8 @@ class TrailingStopWorker:
             "highest_price": position["entry_price"]
         }
 
+        self.entry_time[symbol] = time.time()
+
         logger.info(
             "[TRAILING] tracking symbol=%s qty=%s entry=%s",
             symbol,
@@ -53,11 +56,10 @@ class TrailingStopWorker:
 
         symbol = position["symbol"]
 
-        if symbol in self.positions:
+        self.positions.pop(symbol, None)
+        self.entry_time.pop(symbol, None)
 
-            del self.positions[symbol]
-
-            logger.info("[TRAILING] stop tracking %s", symbol)
+        logger.info("[TRAILING] stop tracking %s", symbol)
 
     def handle_indicator(self, event):
 
@@ -83,32 +85,25 @@ class TrailingStopWorker:
         if symbol not in self.positions:
             return
 
-        # pending 주문 있으면 stop 생성 금지
         if symbol in self.pending_orders:
+            return
+
+        entry_time = self.entry_time.get(symbol, 0)
+
+        if time.time() - entry_time < self.MIN_HOLD_SECONDS:
             return
 
         pos = self.positions[symbol]
 
         if price > pos["highest_price"]:
-
             pos["highest_price"] = price
-
-            logger.info("[TRAILING] new high %s", price)
 
         atr = self.atr.get(symbol)
 
         if atr is None:
             return
 
-        stop_price = pos["highest_price"] - atr * self.atr_multiplier
-
-        logger.info(
-            "[TRAILING] price=%s high=%s atr=%s stop=%s",
-            price,
-            pos["highest_price"],
-            atr,
-            stop_price
-        )
+        stop_price = pos["highest_price"] - atr * self.ATR_MULTIPLIER
 
         if price <= stop_price:
 

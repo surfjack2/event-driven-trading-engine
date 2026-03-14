@@ -26,6 +26,7 @@ from ltb.indicator.indicator_worker import IndicatorWorker
 # strategy
 from ltb.runtime.workers.strategy_worker import StrategyWorker
 from ltb.runtime.workers.signal_dedup_worker import SignalDedupWorker
+from ltb.runtime.workers.signal_persistence_worker import SignalPersistenceWorker
 from ltb.runtime.workers.signal_ranking_worker import SignalRankingWorker
 from ltb.runtime.workers.liquidity_filter_worker import LiquidityFilterWorker
 from ltb.runtime.workers.strategy_allocation_worker import StrategyAllocationWorker
@@ -102,7 +103,10 @@ def main():
 
     workers = [
 
+        # =========================
         # market
+        # =========================
+
         MarketWorker(bus),
 
         MarketCalendarWorker(bus),
@@ -112,48 +116,79 @@ def main():
         LiquidityRegimeWorker(bus),
         ExposureWorker(bus),
 
+        # =========================
         # scanning
+        # =========================
+
         RelativeTurnoverScannerWorker(bus),
         ScannerWorker(bus),
         AlphaRankingWorker(bus),
         UniverseScannerWorker(bus),
 
+        # =========================
         # ranking
+        # =========================
+
         RankingWorker(bus),
 
+        # =========================
         # indicators
+        # =========================
+
         IndicatorWorker(bus),
 
+        # =========================
         # strategy
+        # =========================
+
         StrategyWorker(bus),
         SignalDedupWorker(bus),
+        SignalPersistenceWorker(bus),
         SignalRankingWorker(bus),
         LiquidityFilterWorker(bus),
         StrategyAllocationWorker(bus),
 
+        # =========================
         # intent layer
+        # =========================
+
         PositionIntentWorker(bus),
         CorrelationFilterWorker(bus),
         PortfolioOptimizerWorker(bus),
 
+        # =========================
         # execution
+        # =========================
+
         ExecutionWorker(bus),
         OrderExecutorWorker(bus),
 
+        # =========================
         # portfolio
+        # =========================
+
         PortfolioWorker(bus),
         TradeLedgerWorker(bus),
 
+        # =========================
         # performance
+        # =========================
+
         StrategyPerformanceWorker(bus),
         StrategyKillSwitchWorker(bus),
 
+        # =========================
         # risk
+        # =========================
+
         TrailingStopWorker(bus),
         SignalDecayExitWorker(bus),
         RiskWorker(bus),
 
+        # =========================
         # analytics / system
+        # =========================
+
         AnalyticsWorker(bus),
         AlertWorker(bus),
         KillSwitchWorker(bus),

@@ -15,7 +15,7 @@ class SignalRankingWorker:
         self.buffer = deque(maxlen=self.BUFFER_SIZE)
 
         self.bus.subscribe(
-            "dedup.signal",
+            "persistent.signal",
             self.on_signal
         )
 
@@ -90,23 +90,18 @@ class SignalRankingWorker:
 
         score = 0
 
-        # momentum
         if price and ema:
             momentum = (price - ema) / ema
             score += momentum * 200
 
-        # vwap displacement
         if price and vwap:
             vwap_gap = (price - vwap) / vwap
             score += vwap_gap * 150
 
-        # volume impulse
         score += volume_ratio * 25
 
-        # price expansion
         score += price_change * 300
 
-        # volatility penalty
         if atr and price:
             vol_factor = atr / price
             score -= vol_factor * 120
