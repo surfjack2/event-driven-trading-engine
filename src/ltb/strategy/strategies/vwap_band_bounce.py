@@ -9,6 +9,9 @@ class VWAPBandBounceStrategy:
 
         self.config = config or {}
 
+        self.volume_ratio = self.config.get("volume_ratio", 1.2)
+        self.reversal_threshold = self.config.get("reversal_threshold", 0.001)
+
     def evaluate(self, event):
 
         symbol = event["symbol"]
@@ -22,42 +25,47 @@ class VWAPBandBounceStrategy:
         volume = event.get("volume")
         volume_ma = event.get("volume_ma")
 
-        if not vwap or not vwap_lower:
+        if not vwap or not vwap_lower or not prev:
             return []
 
-        touch = price <= vwap_lower
-        bounce = prev and price > prev
+        # -----------------------
+        # 1️⃣ lower band 위치
+        # -----------------------
 
-        volume_spike = False
+        if price > vwap_lower:
+            return []
+
+        logger.info("[VWAP_BOUNCE] lower band touched %s", symbol)
+
+        # -----------------------
+        # 2️⃣ 반전 확인
+        # -----------------------
+
+        reversal = (price - prev) / prev
+
+        if reversal < self.reversal_threshold:
+            return []
+
+        # -----------------------
+        # 3️⃣ volume 확인
+        # -----------------------
+
         if volume and volume_ma and volume_ma > 0:
-            volume_spike = volume > volume_ma * 1.2
 
-        reclaim = price >= vwap
+            ratio = volume / volume_ma
 
-        score = sum([
-            bool(touch),
-            bool(bounce),
-            bool(volume_spike),
-            bool(reclaim)
-        ])
+            if ratio < self.volume_ratio:
+                return []
 
-        if touch:
-            logger.info("[VWAP_BOUNCE] lower band touched %s", symbol)
+        logger.info(
+            "[VWAP_BOUNCE] signal confirmed %s",
+            symbol
+        )
 
-        if score >= 3:
-
-            logger.info(
-                "[VWAP_BOUNCE] signal confirmed %s score=%s",
-                symbol,
-                score
-            )
-
-            return [{
-                "symbol": symbol,
-                "action": "BUY",
-                "price": price,
-                "qty": 1,
-                "strategy": self.name
-            }]
-
-        return []
+        return [{
+            "symbol": symbol,
+            "action": "BUY",
+            "price": price,
+            "qty": 1,
+            "strategy": self.name
+        }]

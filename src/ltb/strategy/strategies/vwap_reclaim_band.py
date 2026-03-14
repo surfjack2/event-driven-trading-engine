@@ -9,6 +9,8 @@ class VWAPReclaimBandStrategy:
 
         self.config = config or {}
 
+        self.volume_ratio = self.config.get("volume_ratio", 1.3)
+
     def evaluate(self, event):
 
         symbol = event["symbol"]
@@ -24,37 +26,44 @@ class VWAPReclaimBandStrategy:
         if not vwap or not prev:
             return []
 
+        # -----------------------
+        # reclaim 확인
+        # -----------------------
+
         reclaim = prev < vwap and price >= vwap
 
-        volume_spike = False
+        if not reclaim:
+            return []
+
+        logger.info("[VWAP] reclaim detected %s", symbol)
+
+        # -----------------------
+        # volume 확인
+        # -----------------------
+
         if volume and volume_ma and volume_ma > 0:
-            volume_spike = volume > volume_ma * 1.3
 
-        momentum = price > prev
+            ratio = volume / volume_ma
 
-        score = sum([
-            bool(reclaim),
-            bool(volume_spike),
-            bool(momentum)
-        ])
+            if ratio < self.volume_ratio:
+                return []
 
-        if reclaim:
-            logger.info("[VWAP] reclaim detected %s", symbol)
+        # -----------------------
+        # momentum 확인
+        # -----------------------
 
-        if score >= 2:
+        if price <= prev:
+            return []
 
-            logger.info(
-                "[VWAP] signal confirmed %s score=%s",
-                symbol,
-                score
-            )
+        logger.info(
+            "[VWAP] signal confirmed %s",
+            symbol
+        )
 
-            return [{
-                "symbol": symbol,
-                "action": "BUY",
-                "price": price,
-                "qty": 1,
-                "strategy": self.name
-            }]
-
-        return []
+        return [{
+            "symbol": symbol,
+            "action": "BUY",
+            "price": price,
+            "qty": 1,
+            "strategy": self.name
+        }]
