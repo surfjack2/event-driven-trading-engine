@@ -1,0 +1,416 @@
+# LTB Dashboard Architecture
+
+## Overview
+
+This document defines the dashboard architecture for the LTB (Live Trading Bot) platform.
+
+The dashboard is designed to support two primary use cases.
+
+1. CLI monitoring during development and internal strategy testing.
+2. Web dashboard monitoring during live trading operations.
+
+Both interfaces must present the same underlying data.
+
+For this reason the dashboard system is built around a unified **Dashboard Snapshot Model** that feeds both CLI and Web UI layers.
+
+The dashboard is part of the operational layer of the LTB trading platform.
+
+
+---------------------------------------------------------------------
+
+
+## Dashboard Design Principles
+
+The dashboard architecture follows several core design principles.
+
+Unified Data Model
+
+CLI dashboards and Web dashboards must consume the same data model so that operational behavior remains consistent across development and production.
+
+Event Driven Metrics
+
+All metrics shown on the dashboard must originate from the event bus and not from log parsing.
+
+Market Context Awareness
+
+The dashboard must support multiple markets.
+
+Examples include:
+
+US equities  
+Korean equities  
+crypto markets  
+futures markets
+
+Modular UI Sections
+
+Each dashboard section corresponds to a top level UI menu and must be independently queryable.
+
+
+---------------------------------------------------------------------
+
+
+## Dashboard Top Level Sections
+
+The dashboard is organized into the following modules.
+
+Dashboard  
+Markets  
+Signals  
+Trades  
+Portfolio  
+Strategy  
+News / Filings  
+FX / Macro  
+Alerts  
+System
+
+
+These modules correspond to top navigation menus in the Web UI.
+
+In the CLI dashboard these sections are printed sequentially.
+
+
+---------------------------------------------------------------------
+
+
+## Dashboard Snapshot Model
+
+The dashboard state is represented by a single object.
+
+DashboardSnapshot
+
+Structure
+
+DashboardSnapshot
+
+engine  
+markets  
+signals  
+trades  
+portfolio  
+strategy  
+news  
+fx  
+alerts  
+system
+
+Each field contains aggregated metrics generated from the metrics storage layer.
+
+
+---------------------------------------------------------------------
+
+
+## Engine Section
+
+The engine section displays runtime system status.
+
+Fields
+
+engine_started_at  
+uptime  
+engine_status  
+worker_count  
+event_queue_size
+
+Example CLI output
+
+ENGINE
+
+status: running  
+uptime: 01:42:33  
+workers: 37
+
+
+---------------------------------------------------------------------
+
+
+## Markets Section
+
+The markets section displays the currently selected trading environment.
+
+Fields
+
+selected_market  
+market_session  
+market_regime  
+liquidity_regime  
+exposure_limit
+
+Example
+
+MARKET
+
+market: US  
+session: OPEN  
+regime: sideways  
+liquidity: normal
+
+
+---------------------------------------------------------------------
+
+
+## Signals Section
+
+The signals section displays signal pipeline statistics.
+
+Fields
+
+signals_generated  
+signals_ranked  
+signals_filtered  
+signals_executed  
+conversion_rate
+
+Example
+
+SIGNALS
+
+generated: 421  
+ranked: 112  
+executed: 23  
+conversion: 5.4%
+
+
+---------------------------------------------------------------------
+
+
+## Trades Section
+
+The trades section summarizes trade execution performance.
+
+Fields
+
+trades_today  
+win_rate  
+avg_pnl  
+avg_hold_time  
+profit_factor
+
+Example
+
+TRADES
+
+trades: 23  
+win_rate: 58%  
+avg_pnl: +0.32%  
+avg_hold: 142 sec
+
+
+---------------------------------------------------------------------
+
+
+## Portfolio Section
+
+The portfolio section shows the current account state.
+
+Fields
+
+equity  
+cash  
+positions  
+daily_pnl  
+exposure
+
+Example
+
+PORTFOLIO
+
+equity: 10,234,221  
+positions: 5  
+daily_pnl: +0.42%
+
+
+---------------------------------------------------------------------
+
+
+## Strategy Section
+
+The strategy section displays per strategy performance statistics.
+
+Fields
+
+strategy  
+trades  
+win_rate  
+avg_pnl  
+total_pnl
+
+Example
+
+STRATEGY PERFORMANCE
+
+momentum        trades:12 win:50% pnl:+2.1%  
+vwap_reclaim    trades:11 win:63% pnl:+3.4%
+
+
+---------------------------------------------------------------------
+
+
+## News / Filings Section
+
+This section displays relevant financial news and corporate disclosures.
+
+Fields
+
+timestamp  
+symbol  
+title  
+source  
+url
+
+Data sources may include
+
+financial news feeds  
+SEC filings  
+earnings announcements  
+DART disclosures for Korean markets
+
+
+---------------------------------------------------------------------
+
+
+## FX / Macro Section
+
+This section displays macro indicators that influence trading conditions.
+
+Fields
+
+symbol  
+price  
+timestamp
+
+Typical indicators
+
+USDKRW  
+DXY  
+US10Y  
+VIX
+
+
+---------------------------------------------------------------------
+
+
+## Alerts Section
+
+This section displays operational alerts generated by the engine.
+
+Fields
+
+timestamp  
+level  
+type  
+message  
+source
+
+Examples
+
+strategy disabled  
+risk limit exceeded  
+market halt detected  
+API connection failure
+
+
+---------------------------------------------------------------------
+
+
+## System Section
+
+The system section displays internal engine health metrics.
+
+Fields
+
+worker_status  
+event_queue_latency  
+memory_usage  
+cpu_usage  
+log_rate
+
+
+---------------------------------------------------------------------
+
+
+## Data Flow Architecture
+
+Dashboard data is generated through the following pipeline.
+
+Event Bus  
+↓  
+Analytics Event Worker  
+↓  
+Metrics Store (SQLite)  
+↓  
+Dashboard Service  
+↓  
+CLI Dashboard / Web Dashboard
+
+
+The event bus acts as the single source of truth for operational metrics.
+
+
+---------------------------------------------------------------------
+
+
+## CLI Dashboard
+
+The CLI dashboard is primarily used during development and strategy validation.
+
+Command
+
+python tools/ltb_dashboard.py
+
+Example output
+
+===== ENGINE =====  
+status: running
+
+===== MARKET =====  
+market: US  
+session: OPEN
+
+===== SIGNALS =====  
+generated: 421  
+executed: 23
+
+===== PORTFOLIO =====  
+equity: 10,234,221
+
+
+---------------------------------------------------------------------
+
+
+## Web Dashboard
+
+The Web dashboard will expose the same information through a graphical interface.
+
+Top navigation menu
+
+Dashboard | Markets | Signals | Trades | Portfolio | Strategy | News | FX | Alerts | System
+
+
+---------------------------------------------------------------------
+
+
+## Future Enhancements
+
+Future improvements to the dashboard may include
+
+real time charts  
+portfolio equity curves  
+strategy comparison analytics  
+signal quality visualization  
+risk heat maps
+
+
+---------------------------------------------------------------------
+
+
+## Summary
+
+The LTB dashboard provides a unified operational monitoring interface.
+
+It supports both development and live trading monitoring environments.
+
+The architecture ensures that operational metrics remain consistent across CLI and Web dashboards.
+
+The dashboard architecture forms the foundation for the LTB operational monitoring layer.
