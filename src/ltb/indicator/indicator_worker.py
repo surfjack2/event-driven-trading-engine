@@ -12,7 +12,6 @@ class IndicatorWorker:
         self.bus = bus
         self.engine = IndicatorEngine()
 
-        # ATR 계산용
         self.atr = defaultdict(float)
         self.atr_period = 14
 
@@ -59,8 +58,8 @@ class IndicatorWorker:
         upper, lower = self.engine.vwap_bands(symbol)
 
         volume_ma = self.engine.volume_ma(symbol)
+        turnover_ma = self.engine.turnover_ma(symbol)
 
-        # ATR 계산
         atr = self.calculate_atr(symbol, price, prev_price)
 
         indicator_event = {
@@ -71,6 +70,9 @@ class IndicatorWorker:
 
             "volume": volume,
             "volume_ma": volume_ma,
+
+            "turnover": price * volume if volume else 0,
+            "turnover_ma": turnover_ma,
 
             "rsi": rsi,
             "ema": ema,
@@ -83,22 +85,15 @@ class IndicatorWorker:
         }
 
         logger.debug(
-            "[INDICATOR] %s price=%s vwap=%s atr=%s volume=%s",
+            "[INDICATOR] %s price=%s vwap=%s atr=%s turnover=%s",
             symbol,
             price,
             vwap,
             atr,
-            volume
+            indicator_event["turnover"]
         )
 
         self.bus.publish(
             "market.indicator",
             indicator_event
         )
-
-
-def run_indicator_worker(bus):
-
-    worker = IndicatorWorker(bus)
-
-    worker.run()

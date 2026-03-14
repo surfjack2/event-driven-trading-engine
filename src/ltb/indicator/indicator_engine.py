@@ -8,12 +8,13 @@ class IndicatorEngine:
 
         self.prices = {}
         self.volumes = {}
+        self.turnovers = {}
 
         self.rsi_period = 14
         self.ema_period = 20
         self.volume_ma_period = 20
+        self.turnover_ma_period = 20
 
-        # VWAP band multiplier
         self.vwap_band_mult = 1.2
 
     def add_price(self, symbol, price, volume):
@@ -21,21 +22,22 @@ class IndicatorEngine:
         if symbol not in self.prices:
             self.prices[symbol] = deque(maxlen=200)
             self.volumes[symbol] = deque(maxlen=200)
+            self.turnovers[symbol] = deque(maxlen=200)
+
+        turnover = price * volume if volume else 0
 
         self.prices[symbol].append(price)
         self.volumes[symbol].append(volume)
+        self.turnovers[symbol].append(turnover)
 
     def get_prices(self, symbol):
-
         return list(self.prices.get(symbol, []))
 
     def get_volumes(self, symbol):
-
         return list(self.volumes.get(symbol, []))
 
-    # ==========================
-    # EMA
-    # ==========================
+    def get_turnovers(self, symbol):
+        return list(self.turnovers.get(symbol, []))
 
     def ema(self, symbol):
 
@@ -52,10 +54,6 @@ class IndicatorEngine:
             ema = p * k + ema * (1 - k)
 
         return ema
-
-    # ==========================
-    # RSI
-    # ==========================
 
     def rsi(self, symbol):
 
@@ -88,10 +86,6 @@ class IndicatorEngine:
 
         return 100 - (100 / (1 + rs))
 
-    # ==========================
-    # VWAP
-    # ==========================
-
     def vwap(self, symbol):
 
         prices = self.get_prices(symbol)
@@ -108,10 +102,6 @@ class IndicatorEngine:
 
         return pv / total_volume
 
-    # ==========================
-    # VWAP BANDS (ATR style)
-    # ==========================
-
     def vwap_bands(self, symbol):
 
         prices = self.get_prices(symbol)
@@ -121,7 +111,6 @@ class IndicatorEngine:
 
         vwap = self.vwap(symbol)
 
-        # volatility proxy
         std = statistics.pstdev(prices)
 
         band = std * self.vwap_band_mult
@@ -131,10 +120,6 @@ class IndicatorEngine:
 
         return upper, lower
 
-    # ==========================
-    # Volume MA
-    # ==========================
-
     def volume_ma(self, symbol):
 
         volumes = self.get_volumes(symbol)
@@ -143,3 +128,12 @@ class IndicatorEngine:
             return None
 
         return sum(volumes[-self.volume_ma_period:]) / self.volume_ma_period
+
+    def turnover_ma(self, symbol):
+
+        turnovers = self.get_turnovers(symbol)
+
+        if len(turnovers) < self.turnover_ma_period:
+            return None
+
+        return sum(turnovers[-self.turnover_ma_period:]) / self.turnover_ma_period
