@@ -10,12 +10,10 @@ class ScannerWorker:
     def __init__(self, bus):
 
         self.bus = bus
-
-        # 최근 가격 저장
         self.prices = defaultdict(list)
 
         self.bus.subscribe(
-            "market.indicator",
+            "scanner.rtv",
             self.on_market
         )
 
@@ -30,8 +28,6 @@ class ScannerWorker:
 
         symbol = data.get("symbol")
         price = data.get("price")
-        volume = data.get("volume")
-        volume_ma = data.get("volume_ma")
         vwap = data.get("vwap")
 
         if not symbol or not price:
@@ -45,29 +41,12 @@ class ScannerWorker:
         if len(self.prices[symbol]) < 15:
             return
 
-        # ---------------------------
-        # Price breakout
-        # ---------------------------
-
         change = (
             price - self.prices[symbol][0]
         ) / self.prices[symbol][0]
 
-        if change < 0.02:
+        if change < 0.015:
             return
-
-        # ---------------------------
-        # Volume filter
-        # ---------------------------
-
-        if volume_ma and volume:
-
-            if volume < volume_ma:
-                return
-
-        # ---------------------------
-        # VWAP proximity
-        # ---------------------------
 
         if vwap:
 
@@ -75,10 +54,6 @@ class ScannerWorker:
 
             if distance > 0.03:
                 return
-
-        # ---------------------------
-        # ATR expansion
-        # ---------------------------
 
         prices = self.prices[symbol]
 
@@ -92,7 +67,7 @@ class ScannerWorker:
 
         atr = statistics.mean(returns)
 
-        if atr < 0.003:   # 0.3%
+        if atr < 0.003:
             return
 
         logger.info(
