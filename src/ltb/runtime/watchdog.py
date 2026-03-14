@@ -11,6 +11,7 @@ from ltb.runtime.workers.market_regime_worker import MarketRegimeWorker
 from ltb.runtime.workers.exposure_worker import ExposureWorker
 
 # scanning
+from ltb.runtime.workers.relative_turnover_scanner_worker import RelativeTurnoverScannerWorker
 from ltb.runtime.workers.scanner_worker import ScannerWorker
 from ltb.runtime.workers.universe_scanner_worker import UniverseScannerWorker
 
@@ -115,6 +116,7 @@ def main():
         # scanning
         # =========================
 
+        RelativeTurnoverScannerWorker(bus),
         ScannerWorker(bus),
         UniverseScannerWorker(bus),
 

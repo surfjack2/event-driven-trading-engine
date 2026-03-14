@@ -37,6 +37,9 @@ class RankingWorker:
         volume = data.get("volume")
         volume_ma = data.get("volume_ma")
 
+        turnover = data.get("turnover")
+        turnover_ma = data.get("turnover_ma")
+
         vwap = data.get("vwap")
 
         if not symbol or not price or not prev:
@@ -44,7 +47,7 @@ class RankingWorker:
 
         score = 0
 
-        # momentum
+        # price momentum
         change = (price - prev) / prev
         score += change * 40
 
@@ -53,6 +56,12 @@ class RankingWorker:
 
             ratio = volume / volume_ma
             score += min(25, ratio * 10)
+
+        # turnover momentum (institutional liquidity)
+        if turnover and turnover_ma and turnover_ma > 0:
+
+            turnover_ratio = turnover / turnover_ma
+            score += min(35, turnover_ratio * 12)
 
         # VWAP proximity
         if vwap:
