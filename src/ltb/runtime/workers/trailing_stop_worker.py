@@ -21,8 +21,9 @@ class TrailingStopWorker:
         self.event_bus.subscribe("POSITION_OPENED", self.handle_position)
         self.event_bus.subscribe("POSITION_CLOSED", self.handle_close)
 
+        # 🔴 indicator 기반으로 통일
+        self.event_bus.subscribe("market.indicator", self.handle_price)
         self.event_bus.subscribe("market.indicator", self.handle_indicator)
-        self.event_bus.subscribe("MARKET_TICK", self.handle_price)
 
         self.event_bus.subscribe("ORDER_FILLED", self.handle_filled)
 

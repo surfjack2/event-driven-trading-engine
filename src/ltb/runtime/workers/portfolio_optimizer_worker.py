@@ -7,6 +7,7 @@ from ltb.system.logger import logger
 class PortfolioOptimizerWorker:
 
     MAX_TOTAL_POSITIONS = 8
+    OPTIMIZER_MAX_SELECTION = 2
     FLUSH_INTERVAL = 1.0
 
     STRATEGY_QUOTA = {
@@ -90,10 +91,6 @@ class PortfolioOptimizerWorker:
                 volume = s.get("volume", 0)
                 volume_ma = s.get("volume_ma", 1)
 
-                # ------------------
-                # factors
-                # ------------------
-
                 volatility = atr / price
                 if volatility <= 0:
                     volatility = 0.001
@@ -101,10 +98,6 @@ class PortfolioOptimizerWorker:
                 liquidity = volume / volume_ma if volume_ma else 1
 
                 momentum = s.get("price_change", 0)
-
-                # ------------------
-                # portfolio score
-                # ------------------
 
                 score = (
                     alpha * 0.6
@@ -143,6 +136,9 @@ class PortfolioOptimizerWorker:
         for signal in candidates:
 
             if remaining_slots <= 0:
+                break
+
+            if len(selected) >= self.OPTIMIZER_MAX_SELECTION:
                 break
 
             strategy = signal.get("strategy")

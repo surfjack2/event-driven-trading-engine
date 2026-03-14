@@ -1,27 +1,29 @@
 import time
+from collections import deque, defaultdict
 import numpy as np
-from collections import defaultdict, deque
 
 from ltb.system.logger import logger
 
 
 class CorrelationFilterWorker:
 
-    WINDOW = 30
-    MAX_CORR = 0.8
+    CORR_WINDOW = 20
+    CORR_THRESHOLD = 0.85
+
+    MAX_SYMBOL_CORR = 1
 
     def __init__(self, bus):
 
         self.bus = bus
 
-        self.prices = defaultdict(lambda: deque(maxlen=self.WINDOW))
-
-        self.pending_signals = []
+        self.price_history = defaultdict(
+            lambda: deque(maxlen=self.CORR_WINDOW)
+        )
 
         self.positions = set()
 
-        self.bus.subscribe("market.price", self.on_price)
-        self.bus.subscribe("intent.signal", self.on_signal)
+        self.bus.subscribe("filtered.intent", self.on_intent)
+        self.bus.subscribe("market.indicator", self.on_price)
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
     def run(self):
@@ -29,19 +31,7 @@ class CorrelationFilterWorker:
         logger.info("[CORRELATION FILTER WORKER STARTED]")
 
         while True:
-
-            if self.pending_signals:
-
-                self.process()
-
-            time.sleep(0.5)
-
-    def on_price(self, data):
-
-        symbol = data["symbol"]
-        price = data["price"]
-
-        self.prices[symbol].append(price)
+            time.sleep(1)
 
     def on_portfolio_update(self, data):
 
@@ -53,69 +43,61 @@ class CorrelationFilterWorker:
         else:
             self.positions.discard(symbol)
 
-    def on_signal(self, signal):
+    def on_price(self, data):
 
-        self.pending_signals.append(signal)
+        symbol = data.get("symbol")
+        price = data.get("price")
 
-    def process(self):
+        if not symbol or not price:
+            return
 
-        accepted = []
+        self.price_history[symbol].append(price)
 
-        for signal in self.pending_signals:
+    def on_intent(self, signal):
 
-            symbol = signal["symbol"]
+        symbol = signal["symbol"]
 
-            if self.is_correlated(symbol, accepted):
+        # 포지션 없으면 통과
+        if not self.positions:
+            self.bus.publish("filtered.intent", signal)
+            return
+
+        history = self.price_history.get(symbol)
+
+        if not history or len(history) < self.CORR_WINDOW:
+            self.bus.publish("filtered.intent", signal)
+            return
+
+        new_series = np.array(history)
+
+        for pos_symbol in self.positions:
+
+            pos_hist = self.price_history.get(pos_symbol)
+
+            if not pos_hist or len(pos_hist) < self.CORR_WINDOW:
+                continue
+
+            pos_series = np.array(pos_hist)
+
+            corr = np.corrcoef(new_series, pos_series)[0, 1]
+
+            if corr >= self.CORR_THRESHOLD:
 
                 logger.info(
-                    "[CORRELATION] filtered %s",
-                    symbol
+                    "[CORRELATION FILTER] blocked %s vs %s corr=%.2f",
+                    symbol,
+                    pos_symbol,
+                    corr
                 )
 
-                continue
+                return
 
-            accepted.append(symbol)
+        logger.info(
+            "[CORRELATION FILTER] passed %s",
+            symbol
+        )
 
-            self.bus.publish(
-                "filtered.intent",
-                signal
-            )
-
-        self.pending_signals.clear()
-
-    def is_correlated(self, symbol, selected):
-
-        if symbol not in self.prices:
-            return False
-
-        p1 = list(self.prices[symbol])
-
-        if len(p1) < self.WINDOW:
-            return False
-
-        r1 = np.diff(p1) / p1[:-1]
-
-        compare_list = list(selected) + list(self.positions)
-
-        for s in compare_list:
-
-            if s not in self.prices:
-                continue
-
-            p2 = list(self.prices[s])
-
-            if len(p2) < self.WINDOW:
-                continue
-
-            r2 = np.diff(p2) / p2[:-1]
-
-            corr = np.corrcoef(r1, r2)[0, 1]
-
-            if np.isnan(corr):
-                continue
-
-            if corr > self.MAX_CORR:
-
-                return True
-
-        return False
+        self.bus.publish(
+            "filtered.intent",
+            signal
+        )

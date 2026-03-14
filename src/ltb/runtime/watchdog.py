@@ -51,6 +51,7 @@ from ltb.runtime.workers.strategy_kill_switch_worker import StrategyKillSwitchWo
 # risk
 from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
 from ltb.runtime.workers.signal_decay_exit_worker import SignalDecayExitWorker
+from ltb.runtime.workers.position_time_stop_worker import PositionTimeStopWorker
 from ltb.runtime.workers.risk_worker import RiskWorker
 
 # system
@@ -183,6 +184,7 @@ def main():
 
         TrailingStopWorker(bus),
         SignalDecayExitWorker(bus),
+        PositionTimeStopWorker(bus),
         RiskWorker(bus),
 
         # =========================

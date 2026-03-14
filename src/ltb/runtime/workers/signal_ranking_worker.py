@@ -1,5 +1,6 @@
 import time
 from collections import deque
+import statistics
 from ltb.system.logger import logger
 
 
@@ -9,10 +10,17 @@ class SignalRankingWorker:
     RANK_INTERVAL = 1
     BUFFER_SIZE = 200
 
+    # 🔴 normalization window
+    NORMALIZE_WINDOW = 100
+
     def __init__(self, bus):
 
         self.bus = bus
+
         self.buffer = deque(maxlen=self.BUFFER_SIZE)
+
+        # 🔴 alpha history
+        self.alpha_history = deque(maxlen=self.NORMALIZE_WINDOW)
 
         self.bus.subscribe(
             "persistent.signal",
@@ -68,12 +76,17 @@ class SignalRankingWorker:
 
     def on_signal(self, signal):
 
-        score = self.alpha_score(signal)
+        raw_alpha = self.alpha_score(signal)
 
-        signal["alpha_score"] = score
+        # 🔴 history 저장
+        self.alpha_history.append(raw_alpha)
+
+        norm_alpha = self.normalize_alpha(raw_alpha)
+
+        signal["alpha_score"] = norm_alpha
 
         self.buffer.append({
-            "score": score,
+            "score": norm_alpha,
             "signal": signal
         })
 
@@ -107,3 +120,22 @@ class SignalRankingWorker:
             score -= vol_factor * 120
 
         return score
+
+    # 🔴 alpha normalization
+    def normalize_alpha(self, alpha):
+
+        if len(self.alpha_history) < 10:
+            return alpha
+
+        mean = statistics.mean(self.alpha_history)
+        stdev = statistics.stdev(self.alpha_history)
+
+        if stdev == 0:
+            return alpha
+
+        z = (alpha - mean) / stdev
+
+        # clamp extreme values
+        z = max(-3, min(3, z))
+
+        return z
