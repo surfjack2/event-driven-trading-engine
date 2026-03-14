@@ -16,10 +16,27 @@ class PositionSizer:
         logger.info("[POSITION SIZER INITIALIZED]")
 
 
-    def calculate(self, entry_price, stop_price, weight=1.0):
+    def calculate(
+        self,
+        entry_price,
+        stop_price,
+        weight=1.0,
+        multiplier=1.0,
+        alpha=1.0
+    ):
 
-        # allocation weight 반영
-        risk_amount = self.capital * self.risk_per_trade * weight
+        # 전략 성능 multiplier 반영
+        final_weight = weight * multiplier
+
+        # alpha 기반 scaling
+        alpha_factor = 1.0 + min(max(alpha, -1), 3) * 0.2
+
+        risk_amount = (
+            self.capital
+            * self.risk_per_trade
+            * final_weight
+            * alpha_factor
+        )
 
         risk_per_share = abs(entry_price - stop_price)
 
@@ -39,12 +56,14 @@ class PositionSizer:
             qty = 1
 
         logger.info(
-            "[POSITION SIZE] capital=%s risk=%s stop=%s qty=%s weight=%s",
+            "[POSITION SIZE] capital=%s risk=%s stop=%s qty=%s weight=%s multiplier=%s alpha=%s",
             self.capital,
             risk_amount,
             risk_per_share,
             qty,
-            weight
+            weight,
+            multiplier,
+            alpha
         )
 
         return qty

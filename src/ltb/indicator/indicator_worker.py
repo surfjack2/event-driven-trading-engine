@@ -62,11 +62,27 @@ class IndicatorWorker:
 
         atr = self.calculate_atr(symbol, price, prev_price)
 
+        price_change = 0
+        if prev_price:
+            price_change = (price - prev_price) / prev_price
+
+        vwap_gap = 0
+        if vwap:
+            vwap_gap = (price - vwap) / vwap
+
+        volume_ratio = 0
+        if volume and volume_ma:
+            volume_ratio = volume / volume_ma
+
         indicator_event = {
 
             "symbol": symbol,
             "price": price,
             "prev_price": prev_price,
+
+            "price_change": price_change,
+            "vwap_gap": vwap_gap,
+            "volume_ratio": volume_ratio,
 
             "volume": volume,
             "volume_ma": volume_ma,
@@ -85,12 +101,11 @@ class IndicatorWorker:
         }
 
         logger.debug(
-            "[INDICATOR] %s price=%s vwap=%s atr=%s turnover=%s",
+            "[INDICATOR] %s price=%s vwap=%s atr=%s",
             symbol,
             price,
             vwap,
-            atr,
-            indicator_event["turnover"]
+            atr
         )
 
         self.bus.publish(

@@ -111,6 +111,9 @@ class CorrelationFilterWorker:
 
             corr = np.corrcoef(r1, r2)[0, 1]
 
+            if np.isnan(corr):
+                continue
+
             if corr > self.MAX_CORR:
 
                 return True

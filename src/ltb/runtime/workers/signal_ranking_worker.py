@@ -48,7 +48,7 @@ class SignalRankingWorker:
                 signal = data["signal"]
 
                 logger.info(
-                    "[RANKING] passed %s score=%.2f",
+                    "[RANKING] passed %s score=%.3f",
                     signal["symbol"],
                     score
                 )
@@ -69,81 +69,53 @@ class SignalRankingWorker:
 
     def on_signal(self, signal):
 
-        strategy = signal.get("strategy")
-
-        if strategy == "simple_momentum":
-            score = self.score_momentum(signal)
-
-        elif strategy == "vwap_reclaim":
-            score = self.score_vwap_reclaim(signal)
-
-        elif strategy == "vwap_bounce":
-            score = self.score_vwap_bounce(signal)
-
-        else:
-            score = 0
+        score = self.alpha_score(signal)
 
         self.buffer.append({
             "score": score,
             "signal": signal
         })
 
-    def score_momentum(self, signal):
+    # -----------------------------
+    # Alpha scoring (multi-factor)
+    # -----------------------------
+
+    def alpha_score(self, signal):
 
         price = signal.get("price")
         ema = signal.get("ema")
-        volume = signal.get("volume")
-        volume_ma = signal.get("volume_ma")
-        rsi = signal.get("rsi")
-
-        score = 0
-
-        if ema and price:
-            disparity = (price - ema) / ema
-            score += disparity * 120
-
-        if volume and volume_ma:
-            score += (volume / volume_ma) * 10
-
-        if rsi:
-            score += rsi / 10
-
-        return score
-
-    def score_vwap_reclaim(self, signal):
-
-        price = signal.get("price")
         vwap = signal.get("vwap")
+
         volume = signal.get("volume")
         volume_ma = signal.get("volume_ma")
+
+        rsi = signal.get("rsi")
         atr = signal.get("atr")
 
         score = 0
 
-        if vwap and price:
-            score += ((price - vwap) / vwap) * 150
+        # momentum factor
+        if price and ema:
+            momentum = (price - ema) / ema
+            score += momentum * 150
 
+        # VWAP displacement
+        if price and vwap:
+            vwap_gap = (price - vwap) / vwap
+            score += vwap_gap * 120
+
+        # volume expansion
         if volume and volume_ma:
-            score += (volume / volume_ma) * 15
+            vol_ratio = volume / volume_ma
+            score += vol_ratio * 12
 
+        # RSI trend strength
+        if rsi:
+            score += (rsi - 50) * 0.4
+
+        # volatility normalization
         if atr and price:
-            score += (atr / price) * 200
-
-        return score
-
-    def score_vwap_bounce(self, signal):
-
-        price = signal.get("price")
-        vwap = signal.get("vwap")
-        volume = signal.get("volume")
-        volume_ma = signal.get("volume_ma")
-
-        score = 0
-
-        if vwap and price:
-            score += abs(price - vwap) / vwap * 120
-
-        if volume and volume_ma:
-            score += (volume / volume_ma) * 10
+            vol_factor = atr / price
+            score -= vol_factor * 80
 
         return score

@@ -81,18 +81,38 @@ class PortfolioOptimizerWorker:
 
             for s in signals:
 
+                alpha = s.get("alpha_score", 0)
                 weight = s.get("allocation_weight", 0)
+
                 atr = s.get("atr", 0.001)
                 price = s.get("price", 1)
 
-                volatility = atr / price
+                volume = s.get("volume", 0)
+                volume_ma = s.get("volume_ma", 1)
 
+                # ------------------
+                # factors
+                # ------------------
+
+                volatility = atr / price
                 if volatility <= 0:
                     volatility = 0.001
 
-                signal_strength = weight
+                liquidity = volume / volume_ma if volume_ma else 1
 
-                score = signal_strength / volatility
+                momentum = s.get("price_change", 0)
+
+                # ------------------
+                # portfolio score
+                # ------------------
+
+                score = (
+                    alpha * 0.6
+                    + weight * 0.4
+                    + momentum * 80
+                    + liquidity * 5
+                    - volatility * 120
+                )
 
                 if score > best_score:
 
@@ -100,6 +120,7 @@ class PortfolioOptimizerWorker:
                     best_score = score
 
             if best:
+
                 best["optimizer_score"] = best_score
                 candidates.append(best)
 

@@ -1,8 +1,8 @@
+import time
+
 from ltb.system.logger import logger
 from ltb.strategy.strategy_engine import StrategyEngine
 from ltb.strategy.strategy_loader import StrategyLoader
-
-import time
 
 
 class StrategyWorker:
@@ -31,35 +31,13 @@ class StrategyWorker:
         for strategy in strategies:
             self.engine.register(strategy)
 
-        self.bus.subscribe(
-            "market.indicator",
-            self.on_market
-        )
+        self.bus.subscribe("market.indicator", self.on_market)
+        self.bus.subscribe("market.ranking", self.on_ranking)
+        self.bus.subscribe("market.universe", self.on_universe)
 
-        self.bus.subscribe(
-            "market.ranking",
-            self.on_ranking
-        )
-
-        self.bus.subscribe(
-            "market.universe",
-            self.on_universe
-        )
-
-        self.bus.subscribe(
-            "portfolio.update",
-            self.on_portfolio_update
-        )
-
-        self.bus.subscribe(
-            "order.request",
-            self.on_order_request
-        )
-
-        self.bus.subscribe(
-            "ORDER_FILLED",
-            self.on_order_filled
-        )
+        self.bus.subscribe("portfolio.update", self.on_portfolio_update)
+        self.bus.subscribe("order.request", self.on_order_request)
+        self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
 
     def run(self):
 
@@ -146,27 +124,14 @@ class StrategyWorker:
 
         now = time.time()
 
-        # exit cooldown
         last_exit = self.last_exit_time.get(symbol, 0)
 
         if now - last_exit < self.EXIT_COOLDOWN:
-
-            logger.debug(
-                "[STRATEGY] exit cooldown %s",
-                symbol
-            )
-
             return
 
         last = self.last_signal_time.get(symbol, 0)
 
         if now - last < self.SIGNAL_COOLDOWN:
-
-            logger.debug(
-                "[STRATEGY] cooldown filtered %s",
-                symbol
-            )
-
             return
 
         signals = self.engine.evaluate(event)
@@ -179,8 +144,14 @@ class StrategyWorker:
             signal["rsi"] = event.get("rsi")
             signal["volume"] = event.get("volume")
             signal["volume_ma"] = event.get("volume_ma")
+
             signal["vwap"] = event.get("vwap")
+            signal["ema"] = event.get("ema")
+
             signal["atr"] = event.get("atr")
+
+            signal["price_change"] = event.get("price_change")
+            signal["volatility"] = event.get("volatility")
 
             logger.info(
                 "[STRATEGY] signal generated %s",

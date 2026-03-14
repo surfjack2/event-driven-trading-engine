@@ -29,6 +29,8 @@ class ExecutionWorker:
 
         self.exposure_limit = 1.0
 
+        self.strategy_scores = {}
+
         self.risk = RiskEngine()
         self.sizer = PositionSizer()
 
@@ -47,12 +49,21 @@ class ExecutionWorker:
 
         self.bus.subscribe("portfolio.exposure", self.on_exposure_update)
 
+        self.bus.subscribe("strategy.performance", self.on_strategy_performance)
+
     def run(self):
 
         logger.info("[EXECUTION WORKER STARTED]")
 
         while True:
             time.sleep(1)
+
+    def on_strategy_performance(self, data):
+
+        strategy = data["strategy"]
+        stats = data["stats"]
+
+        self.strategy_scores[strategy] = stats.get("score", 1)
 
     def on_exposure_update(self, data):
 
@@ -109,6 +120,24 @@ class ExecutionWorker:
 
         self.disabled_strategies.discard(strategy)
 
+    def get_multiplier(self, strategy):
+
+        score = self.strategy_scores.get(strategy, 1)
+
+        if score > 1.5:
+            return 1.3
+
+        if score > 1.0:
+            return 1.1
+
+        if score > 0.7:
+            return 1.0
+
+        if score > 0.4:
+            return 0.8
+
+        return 0.6
+
     def on_signal(self, signal):
 
         symbol = signal["symbol"]
@@ -118,6 +147,9 @@ class ExecutionWorker:
 
         weight = signal.get("allocation_weight", 1.0)
 
+        # NEW
+        alpha = signal.get("alpha_score", 1.0)
+
         now = time.time()
 
         if strategy in self.disabled_strategies:
@@ -125,25 +157,13 @@ class ExecutionWorker:
 
         with self.lock:
 
-            last = self.last_signal_time.get(symbol, 0)
-
-            if now - last < 5:
-                return
-
-            if now - self.last_global_order_time < self.GLOBAL_ORDER_INTERVAL:
-                return
-
             if symbol in self.positions or symbol in self.pending_orders:
                 return
 
-            # 전체 포지션 제한
             if len(self.positions) >= self.MAX_TOTAL_POSITIONS:
                 return
 
-            # 신규 진입 슬롯 제한
-            active_new_orders = len(self.pending_orders)
-
-            if active_new_orders >= self.MAX_NEW_POSITIONS:
+            if len(self.pending_orders) >= self.MAX_NEW_POSITIONS:
                 return
 
             strategy_pos = self.strategy_positions.get(strategy, 0)
@@ -151,14 +171,23 @@ class ExecutionWorker:
             if strategy_pos >= self.MAX_STRATEGY_POSITIONS:
                 return
 
-            self.last_signal_time[symbol] = now
+            if now - self.last_global_order_time < self.GLOBAL_ORDER_INTERVAL:
+                return
+
+            multiplier = self.get_multiplier(strategy)
 
             if atr > 0:
                 stop_price = price - atr * self.ATR_MULTIPLIER
             else:
                 stop_price = price * 0.92
 
-            qty = self.sizer.calculate(price, stop_price, weight)
+            qty = self.sizer.calculate(
+                price,
+                stop_price,
+                weight,
+                multiplier,
+                alpha
+            )
 
             if qty <= 0:
                 return
@@ -181,9 +210,10 @@ class ExecutionWorker:
         self.bus.publish("order.request", order)
 
         logger.info(
-            "[EXECUTION] order request published symbol=%s price=%s qty=%s weight=%s",
+            "[EXECUTION] order request published symbol=%s price=%s qty=%s multiplier=%s alpha=%s",
             symbol,
             price,
             qty,
-            weight
+            multiplier,
+            alpha
         )

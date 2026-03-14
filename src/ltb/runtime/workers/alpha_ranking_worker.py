@@ -64,14 +64,75 @@ class AlphaRankingWorker:
             return
 
         price = data.get("price")
+        prev_price = data.get("prev_price")
+
         turnover = data.get("turnover")
+        turnover_ma = data.get("turnover_ma")
+
+        volume = data.get("volume")
+        volume_ma = data.get("volume_ma")
+
+        vwap = data.get("vwap")
         atr = data.get("atr", 0)
 
         if not price or not turnover:
             return
 
-        volatility = atr / price if atr else 0.001
+        score = 0
 
-        score = turnover * volatility
+        # -------------------------
+        # momentum
+        # -------------------------
+
+        if prev_price:
+
+            momentum = (price - prev_price) / prev_price
+
+            score += momentum * 300
+
+
+        # -------------------------
+        # VWAP displacement
+        # -------------------------
+
+        if vwap:
+
+            vwap_gap = (price - vwap) / vwap
+
+            score += vwap_gap * 200
+
+
+        # -------------------------
+        # volume expansion
+        # -------------------------
+
+        if volume and volume_ma:
+
+            vol_ratio = volume / volume_ma
+
+            score += vol_ratio * 20
+
+
+        # -------------------------
+        # turnover strength
+        # -------------------------
+
+        if turnover_ma:
+
+            turnover_ratio = turnover / turnover_ma
+
+            score += turnover_ratio * 25
+
+
+        # -------------------------
+        # volatility penalty
+        # -------------------------
+
+        if atr and price:
+
+            volatility = atr / price
+
+            score -= volatility * 150
+
 
         self.scores[symbol] += score
