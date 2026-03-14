@@ -12,7 +12,6 @@ class PositionIntentWorker:
 
         self.bus = bus
 
-        # symbol → signals
         self.intent_buffer = defaultdict(list)
 
         self.last_flush = time.time()
@@ -68,7 +67,6 @@ class PositionIntentWorker:
 
     def select_best(self, signals):
 
-        # 전략 weight 기준으로 선택
         best = None
         best_weight = -1
 
