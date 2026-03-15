@@ -1,5 +1,6 @@
 from ltb.system.context.mode import SystemMode
 from ltb.system.context.market import MarketType
+from ltb.risk.risk_engine import RiskEngine
 
 
 class SystemContext:
@@ -11,6 +12,23 @@ class SystemContext:
 
         # broker placeholder
         self.broker = None
+
+        # dynamic capital
+        if self.mode == SystemMode.BACKTEST:
+            self.capital = 10000000
+        else:
+            self.capital = 0
+
+        # shared risk engine
+        self.risk_engine = RiskEngine(self)
+
+    def set_capital(self, capital):
+
+        self.capital = capital
+
+    def get_capital(self):
+
+        return self.capital
 
     def is_backtest(self):
 

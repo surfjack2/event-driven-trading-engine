@@ -3,9 +3,9 @@ from ltb.system.logger import logger
 
 class PositionSizer:
 
-    def __init__(self):
+    def __init__(self, risk_engine):
 
-        self.capital = 10000000
+        self.risk_engine = risk_engine
 
         # 기본 리스크 (1%)
         self.risk_per_trade = 0.01
@@ -25,14 +25,14 @@ class PositionSizer:
         alpha=1.0
     ):
 
-        # 전략 성능 multiplier 반영
+        capital = self.risk_engine.get_capital()
+
         final_weight = weight * multiplier
 
-        # alpha 기반 scaling
         alpha_factor = 1.0 + min(max(alpha, -1), 3) * 0.2
 
         risk_amount = (
-            self.capital
+            capital
             * self.risk_per_trade
             * final_weight
             * alpha_factor
@@ -45,8 +45,7 @@ class PositionSizer:
 
         qty = int(risk_amount / risk_per_share)
 
-        # 자본 기반 cap
-        max_position_value = self.capital * self.max_capital_per_trade
+        max_position_value = capital * self.max_capital_per_trade
 
         max_qty_cap = int(max_position_value / entry_price)
 
@@ -57,7 +56,7 @@ class PositionSizer:
 
         logger.info(
             "[POSITION SIZE] capital=%s risk=%s stop=%s qty=%s weight=%s multiplier=%s alpha=%s",
-            self.capital,
+            capital,
             risk_amount,
             risk_per_share,
             qty,

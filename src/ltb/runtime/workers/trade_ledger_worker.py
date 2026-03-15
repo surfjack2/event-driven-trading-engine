@@ -6,20 +6,21 @@ from ltb.system.logger import logger
 
 class TradeLedgerWorker:
 
-    def __init__(self, bus):
+    def __init__(self, bus, context):
 
         self.bus = bus
 
-        # 전체 거래 기록
+        self.context = context
+
+        # shared risk engine
+        self.risk = context.risk_engine
+
         self.trades = []
 
-        # 전략별 pnl
         self.strategy_pnl = defaultdict(float)
 
-        # 일일 pnl
         self.daily_pnl = 0
 
-        # 열린 포지션 저장
         self.open_positions = {}
 
         self.bus.subscribe("POSITION_OPENED", self.on_position_open)
@@ -52,7 +53,6 @@ class TradeLedgerWorker:
             entry_price = open_position.get("entry_price", entry_price)
             strategy = open_position.get("strategy")
 
-            # 실제 시스템에서는 exit_price 받아야 한다
             exit_price = trade.get("exit_price", entry_price)
 
             pnl = (exit_price - entry_price) * qty
@@ -75,6 +75,9 @@ class TradeLedgerWorker:
 
         self.daily_pnl += pnl
 
+        # 🔴 risk engine update
+        self.risk.record_trade(pnl)
+
         if strategy:
             self.strategy_pnl[strategy] += pnl
 
@@ -82,7 +85,6 @@ class TradeLedgerWorker:
             f"[TRADE LEDGER] trade recorded symbol={symbol} strategy={strategy} pnl={pnl} daily={self.daily_pnl}"
         )
 
-        # 전략 성과 시스템 전달
         self.bus.publish("trade.closed", trade_record)
 
         if symbol in self.open_positions:

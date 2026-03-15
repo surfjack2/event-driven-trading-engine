@@ -3,7 +3,9 @@ from ltb.system.logger import logger
 
 class RiskEngine:
 
-    def __init__(self):
+    def __init__(self, context):
+
+        self.context = context
 
         # 동시에 열 수 있는 종목 수
         self.max_open_positions = 5
@@ -16,19 +18,13 @@ class RiskEngine:
 
         self.open_positions = {}
 
-        # 계좌 자본
-        self.capital = 10000000
-
         self.realized_pnl = 0
 
         logger.info("[RISK ENGINE INITIALIZED]")
 
-
-    # 현재 자본 반환 (ExecutionWorker 사용)
     def get_capital(self):
 
-        return self.capital
-
+        return self.context.get_capital()
 
     def update_position(self, symbol, position, price):
 
@@ -44,15 +40,17 @@ class RiskEngine:
                 "price": price
             }
 
-
     def record_trade(self, pnl):
 
         self.realized_pnl += pnl
 
+        # capital update
+        capital = self.context.get_capital()
+        capital += pnl
+        self.context.set_capital(capital)
 
     def check(self, symbol, qty, price):
 
-        # 신규 포지션 수 제한
         if symbol not in self.open_positions:
 
             if len(self.open_positions) >= self.max_open_positions:

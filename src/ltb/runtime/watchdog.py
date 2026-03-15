@@ -187,7 +187,7 @@ def main():
         # =========================
 
         PortfolioWorker(bus),
-        TradeLedgerWorker(bus),
+        TradeLedgerWorker(bus, context),
 
         # =========================
         # performance

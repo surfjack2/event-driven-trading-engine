@@ -6,7 +6,7 @@ from ltb.system.logger import logger
 class SignalPersistenceWorker:
 
     # 개발 단계에서는 완화
-    PERSIST_TICKS = 1
+    PERSIST_TICKS = 2
     WINDOW = 10
 
     def __init__(self, bus):
