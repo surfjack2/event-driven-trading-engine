@@ -1,7 +1,11 @@
 from ltb.system.logger import logger
 from ltb.runtime.queue_bus import QueueBus
 
+from ltb.system.context.system_context import SystemContext
+
 from ltb.runtime.workers.market_worker import MarketWorker
+from ltb.runtime.workers.replay_market_worker import ReplayMarketWorker
+
 from ltb.indicator.indicator_worker import IndicatorWorker
 from ltb.runtime.workers.strategy_worker import StrategyWorker
 from ltb.runtime.workers.execution_worker import ExecutionWorker
@@ -13,19 +17,48 @@ from ltb.runtime.workers.analytics_worker import AnalyticsWorker
 from ltb.runtime.workers.alert_worker import AlertWorker
 
 
-def run_engine():
+def run_engine(context: SystemContext):
 
     logger.info("=== LTB ENGINE PROCESS STARTED ===")
 
     bus = QueueBus()
 
+    # -----------------------------
+    # MARKET SOURCE 분기
+    # -----------------------------
+
+    if context.is_backtest():
+
+        logger.info("[ENGINE MODE] BACKTEST")
+
+        market_worker = ReplayMarketWorker(
+            bus,
+            context.data_file
+        )
+
+    elif context.is_paper():
+
+        logger.info("[ENGINE MODE] PAPER")
+
+        market_worker = MarketWorker(bus)
+
+    elif context.is_live():
+
+        logger.info("[ENGINE MODE] LIVE")
+
+        market_worker = MarketWorker(bus)
+
+    else:
+
+        raise RuntimeError("Unknown system mode")
+
     workers = [
 
-        MarketWorker(bus),
+        market_worker,
         IndicatorWorker(bus),
         StrategyWorker(bus),
-        ExecutionWorker(bus),
-        OrderExecutorWorker(bus),
+        ExecutionWorker(bus, context),
+        OrderExecutorWorker(bus, context),
         PortfolioWorker(bus),
         TrailingStopWorker(bus),
         RiskWorker(bus),

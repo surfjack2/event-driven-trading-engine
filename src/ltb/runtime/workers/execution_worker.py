@@ -47,7 +47,7 @@ class ExecutionWorker:
         self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
         self.bus.subscribe("system.halt", self.on_system_halt)
 
-        # dynamic capital
+        # strategy performance feedback
         self.bus.subscribe(
             "strategy.performance",
             self.on_strategy_performance
@@ -82,11 +82,15 @@ class ExecutionWorker:
         symbol = data["symbol"]
         position = data["position"]
         strategy = data.get("strategy")
+        price = data.get("price", 0)
 
         if position <= 0:
 
             self.positions.pop(symbol, None)
             self.position_risk.pop(symbol, None)
+
+            # RiskEngine 동기화
+            self.risk.update_position(symbol, 0, 0)
 
             if strategy and strategy in self.strategy_positions:
 
@@ -98,6 +102,9 @@ class ExecutionWorker:
         else:
 
             self.positions[symbol] = position
+
+            # RiskEngine 동기화
+            self.risk.update_position(symbol, position, price)
 
             if strategy:
 

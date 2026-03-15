@@ -64,14 +64,15 @@ class PortfolioWorker:
         strategy = fill.get("strategy")
 
         side = fill.get("side")
+        price = fill.get("price")
 
         if side == "BUY":
 
             position = {
                 "symbol": symbol,
-                "entry_price": fill["price"],
+                "entry_price": price,
                 "qty": fill["qty"],
-                "highest_price": fill["price"],
+                "highest_price": price,
                 "entry_time": time.time(),
                 "strategy": strategy
             }
@@ -95,6 +96,7 @@ class PortfolioWorker:
                 {
                     "symbol": symbol,
                     "position": position["qty"],
+                    "price": price,
                     "strategy": strategy
                 }
             )
@@ -105,12 +107,12 @@ class PortfolioWorker:
 
                 pos = self.positions.pop(symbol)
 
-                pnl = (fill["price"] - pos["entry_price"]) * pos["qty"]
+                pnl = (price - pos["entry_price"]) * pos["qty"]
 
                 trade = {
                     "symbol": symbol,
                     "entry_price": pos["entry_price"],
-                    "exit_price": fill["price"],
+                    "exit_price": price,
                     "qty": pos["qty"],
                     "pnl": pnl,
                     "strategy": pos.get("strategy")
@@ -133,6 +135,7 @@ class PortfolioWorker:
                     {
                         "symbol": symbol,
                         "position": 0,
+                        "price": price,
                         "strategy": pos.get("strategy")
                     }
                 )
