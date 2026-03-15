@@ -16,11 +16,18 @@ class RiskEngine:
 
         self.open_positions = {}
 
+        # 계좌 자본
         self.capital = 10000000
 
         self.realized_pnl = 0
 
         logger.info("[RISK ENGINE INITIALIZED]")
+
+
+    # 현재 자본 반환 (ExecutionWorker 사용)
+    def get_capital(self):
+
+        return self.capital
 
 
     def update_position(self, symbol, position, price):
