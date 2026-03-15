@@ -32,7 +32,6 @@ class ExecutionWorker:
 
         self.trading_halted = False
 
-        # shared risk engine
         self.risk = context.risk_engine
 
         self.sizer = PositionSizer(self.risk)
@@ -41,14 +40,18 @@ class ExecutionWorker:
 
         self.position_risk = {}
 
-        # 🔴 주문 rate control
         self.last_order_time = 0
 
         self.bus.subscribe("optimized.signal", self.on_signal)
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
         self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
-
         self.bus.subscribe("system.halt", self.on_system_halt)
+
+        # dynamic capital
+        self.bus.subscribe(
+            "strategy.performance",
+            self.on_strategy_performance
+        )
 
     def run(self):
 
@@ -56,6 +59,15 @@ class ExecutionWorker:
 
         while True:
             time.sleep(1)
+
+    def on_strategy_performance(self, data):
+
+        strategy = data["strategy"]
+        stats = data["stats"]
+
+        score = stats.get("score", 1.0)
+
+        self.strategy_scores[strategy] = score
 
     def on_system_halt(self, data):
 
@@ -81,7 +93,7 @@ class ExecutionWorker:
                 self.strategy_positions[strategy] -= 1
 
                 if self.strategy_positions[strategy] <= 0:
-                    self.strategy_positions.pop(strategy, None)
+                    del self.strategy_positions[strategy]
 
         else:
 
@@ -120,37 +132,53 @@ class ExecutionWorker:
 
         return total_risk / capital
 
+    def get_strategy_multiplier(self, strategy):
+
+        score = self.strategy_scores.get(strategy, 1.0)
+
+        if score >= 2.0:
+            return 1.4
+        elif score >= 1.5:
+            return 1.2
+        elif score >= 1.0:
+            return 1.0
+        elif score >= 0.5:
+            return 0.7
+        else:
+            return 0.4
+
     def on_signal(self, signal):
 
         if self.trading_halted:
+            return
+
+        now = time.time()
+
+        if now - self.last_order_time < self.GLOBAL_ORDER_INTERVAL:
             return
 
         symbol = signal["symbol"]
         price = signal["price"]
         strategy = signal.get("strategy")
 
-        # 이미 포지션 있는 종목 진입 금지
         if symbol in self.positions:
             return
 
-        # 주문 대기 중
         if symbol in self.pending_orders:
             return
 
-        # 총 포지션 제한
         if len(self.positions) >= self.MAX_TOTAL_POSITIONS:
 
             logger.info("[EXECUTION BLOCK] max positions reached")
 
             return
 
-        # 전략 포지션 제한
         strategy_count = self.strategy_positions.get(strategy, 0)
 
         if strategy_count >= self.MAX_STRATEGY_POSITIONS:
 
             logger.info(
-                "[EXECUTION BLOCK] strategy limit reached strategy=%s",
+                "[EXECUTION BLOCK] strategy limit reached %s",
                 strategy
             )
 
@@ -164,11 +192,13 @@ class ExecutionWorker:
         alpha = signal.get("alpha_score", 0)
         weight = signal.get("allocation_weight", 1.0)
 
+        multiplier = self.get_strategy_multiplier(strategy)
+
         qty = self.sizer.calculate(
             entry_price=price,
             stop_price=stop_price,
             weight=weight,
-            multiplier=1.0,
+            multiplier=multiplier,
             alpha=alpha
         )
 
@@ -193,15 +223,6 @@ class ExecutionWorker:
         if not self.risk.check(symbol, qty, price):
             return
 
-        # 🔴 GLOBAL ORDER RATE CONTROL
-        now = time.time()
-
-        if now - self.last_order_time < self.GLOBAL_ORDER_INTERVAL:
-
-            logger.info("[EXECUTION BLOCK] global order interval")
-
-            return
-
         order = {
             "symbol": symbol,
             "side": "BUY",
@@ -210,7 +231,8 @@ class ExecutionWorker:
             "strategy": strategy
         }
 
-        self.pending_orders.add(symbol)
+        with self.lock:
+            self.pending_orders.add(symbol)
 
         self.position_risk[symbol] = position_risk
 
@@ -219,8 +241,9 @@ class ExecutionWorker:
         self.last_order_time = now
 
         logger.info(
-            "[EXECUTION] order request symbol=%s qty=%s heat=%s",
+            "[EXECUTION] order request symbol=%s qty=%s heat=%s multiplier=%s",
             symbol,
             qty,
-            portfolio_heat
+            portfolio_heat,
+            multiplier
         )

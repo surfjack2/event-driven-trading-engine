@@ -12,6 +12,9 @@ class VWAPBandBounceStrategy:
         self.volume_ratio = self.config.get("volume_ratio", 1.2)
         self.reversal_threshold = self.config.get("reversal_threshold", 0.001)
 
+        self.min_volatility = self.config.get("min_volatility", 0.0005)
+        self.max_volatility = self.config.get("max_volatility", 0.03)
+
     def evaluate(self, event):
 
         symbol = event["symbol"]
@@ -25,30 +28,29 @@ class VWAPBandBounceStrategy:
         volume = event.get("volume")
         volume_ma = event.get("volume_ma")
 
+        atr = event.get("atr")
+
         if not vwap or not vwap_lower or not prev:
             return []
 
-        # -----------------------
-        # 1️⃣ lower band 위치
-        # -----------------------
+        if atr:
+            volatility = atr / price
+
+            if volatility < self.min_volatility:
+                return []
+
+            if volatility > self.max_volatility:
+                return []
 
         if price > vwap_lower:
             return []
 
         logger.info("[VWAP_BOUNCE] lower band touched %s", symbol)
 
-        # -----------------------
-        # 2️⃣ 반전 확인
-        # -----------------------
-
         reversal = (price - prev) / prev
 
         if reversal < self.reversal_threshold:
             return []
-
-        # -----------------------
-        # 3️⃣ volume 확인
-        # -----------------------
 
         if volume and volume_ma and volume_ma > 0:
 
@@ -57,10 +59,7 @@ class VWAPBandBounceStrategy:
             if ratio < self.volume_ratio:
                 return []
 
-        logger.info(
-            "[VWAP_BOUNCE] signal confirmed %s",
-            symbol
-        )
+        logger.info("[VWAP_BOUNCE] signal confirmed %s", symbol)
 
         return [{
             "symbol": symbol,

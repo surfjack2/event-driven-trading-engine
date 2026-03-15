@@ -11,6 +11,9 @@ class VWAPReclaimBandStrategy:
 
         self.volume_ratio = self.config.get("volume_ratio", 1.3)
 
+        self.min_volatility = self.config.get("min_volatility", 0.0005)
+        self.max_volatility = self.config.get("max_volatility", 0.03)
+
     def evaluate(self, event):
 
         symbol = event["symbol"]
@@ -23,12 +26,19 @@ class VWAPReclaimBandStrategy:
         volume = event.get("volume")
         volume_ma = event.get("volume_ma")
 
+        atr = event.get("atr")
+
         if not vwap or not prev:
             return []
 
-        # -----------------------
-        # reclaim 확인
-        # -----------------------
+        if atr:
+            volatility = atr / price
+
+            if volatility < self.min_volatility:
+                return []
+
+            if volatility > self.max_volatility:
+                return []
 
         reclaim = prev < vwap and price >= vwap
 
@@ -37,10 +47,6 @@ class VWAPReclaimBandStrategy:
 
         logger.info("[VWAP] reclaim detected %s", symbol)
 
-        # -----------------------
-        # volume 확인
-        # -----------------------
-
         if volume and volume_ma and volume_ma > 0:
 
             ratio = volume / volume_ma
@@ -48,17 +54,10 @@ class VWAPReclaimBandStrategy:
             if ratio < self.volume_ratio:
                 return []
 
-        # -----------------------
-        # momentum 확인
-        # -----------------------
-
         if price <= prev:
             return []
 
-        logger.info(
-            "[VWAP] signal confirmed %s",
-            symbol
-        )
+        logger.info("[VWAP] signal confirmed %s", symbol)
 
         return [{
             "symbol": symbol,

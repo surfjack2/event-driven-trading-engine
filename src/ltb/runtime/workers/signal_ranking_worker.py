@@ -16,12 +16,18 @@ class SignalRankingWorker:
         self.bus = bus
 
         self.buffer = deque(maxlen=self.BUFFER_SIZE)
-
         self.alpha_history = deque(maxlen=self.NORMALIZE_WINDOW)
+
+        self.strategy_scores = {}
 
         self.bus.subscribe(
             "persistent.signal",
             self.on_signal
+        )
+
+        self.bus.subscribe(
+            "strategy.performance",
+            self.on_strategy_perf
         )
 
     def run(self):
@@ -71,6 +77,15 @@ class SignalRankingWorker:
 
             time.sleep(self.RANK_INTERVAL)
 
+    def on_strategy_perf(self, data):
+
+        strategy = data["strategy"]
+        stats = data["stats"]
+
+        score = stats.get("score", 1.0)
+
+        self.strategy_scores[strategy] = score
+
     def on_signal(self, signal):
 
         raw_alpha = self.alpha_score(signal)
@@ -79,10 +94,17 @@ class SignalRankingWorker:
 
         norm_alpha = self.normalize_alpha(raw_alpha)
 
+        strategy = signal.get("strategy")
+
+        perf_score = self.strategy_scores.get(strategy, 1.0)
+
+        final_score = norm_alpha * perf_score
+
         signal["alpha_score"] = norm_alpha
+        signal["final_score"] = final_score
 
         self.buffer.append({
-            "score": norm_alpha,
+            "score": final_score,
             "signal": signal
         })
 
@@ -100,12 +122,6 @@ class SignalRankingWorker:
         if not price:
             return 0
 
-        score = 0
-
-        # -------------------------
-        # Trend alignment
-        # -------------------------
-
         trend = 0
 
         if ema:
@@ -116,28 +132,15 @@ class SignalRankingWorker:
 
         trend_score = trend * 200
 
-        # -------------------------
-        # Momentum
-        # -------------------------
-
         momentum_score = price_change * 300
 
-        # -------------------------
-        # Liquidity pressure
-        # -------------------------
-
         liquidity_score = volume_ratio * 30
-
-        # -------------------------
-        # Volatility penalty
-        # -------------------------
 
         volatility_penalty = 0
 
         if atr and price:
 
             vol = atr / price
-
             volatility_penalty = vol * 150
 
         score = (

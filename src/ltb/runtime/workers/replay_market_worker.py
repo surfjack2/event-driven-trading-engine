@@ -7,10 +7,11 @@ from ltb.system.logger import logger
 
 class ReplayMarketWorker:
 
-    def __init__(self, bus, data_file):
+    def __init__(self, bus, data_file, replay_speed=0.01):
 
         self.bus = bus
         self.data_file = data_file
+        self.replay_speed = replay_speed
 
         self.prev_price = {}
 
@@ -49,7 +50,6 @@ class ReplayMarketWorker:
 
                 self.prev_price[symbol] = price
 
-                # replay 속도
-                time.sleep(0.01)
+                time.sleep(self.replay_speed)
 
         logger.info("[REPLAY FINISHED]")
