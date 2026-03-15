@@ -5,13 +5,23 @@ from ltb.risk.risk_engine import RiskEngine
 
 class SystemContext:
 
-    def __init__(self, mode=SystemMode.BACKTEST, market=MarketType.US):
+    def __init__(
+        self,
+        mode=SystemMode.BACKTEST,
+        market=MarketType.US,
+        data_file=None,
+        replay_speed=0.01
+    ):
 
         self.mode = mode
         self.market = market
 
         # broker placeholder
         self.broker = None
+
+        # backtest config
+        self.data_file = data_file
+        self.replay_speed = replay_speed
 
         # dynamic capital
         if self.mode == SystemMode.BACKTEST:

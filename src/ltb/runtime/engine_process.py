@@ -31,22 +31,26 @@ def run_engine(context: SystemContext):
 
         logger.info("[ENGINE MODE] BACKTEST")
 
+        if not context.data_file:
+            raise RuntimeError("BACKTEST mode requires data_file")
+
         market_worker = ReplayMarketWorker(
             bus,
-            context.data_file
+            context.data_file,
+            context.replay_speed
         )
 
     elif context.is_paper():
 
         logger.info("[ENGINE MODE] PAPER")
 
-        market_worker = MarketWorker(bus)
+        market_worker = MarketWorker(bus, context)
 
     elif context.is_live():
 
         logger.info("[ENGINE MODE] LIVE")
 
-        market_worker = MarketWorker(bus)
+        market_worker = MarketWorker(bus, context)
 
     else:
 
