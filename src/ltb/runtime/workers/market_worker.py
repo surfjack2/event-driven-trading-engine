@@ -7,9 +7,14 @@ from ltb.data.universe_builder import UniverseBuilder
 
 class MarketWorker:
 
-    def __init__(self, event_bus):
+    def __init__(self, event_bus, context):
 
         self.event_bus = event_bus
+        self.context = context
+
+        logger.info(
+            f"[MARKET WORKER INIT] mode={context.mode} market={context.market}"
+        )
 
         self.universe = UniverseBuilder().build()
 

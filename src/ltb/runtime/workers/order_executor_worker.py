@@ -1,12 +1,17 @@
 from ltb.system.logger import logger
+from ltb.execution.executor_router import ExecutorRouter
 import time
 
 
 class OrderExecutorWorker:
 
-    def __init__(self, event_bus):
+    def __init__(self, event_bus, context):
 
         self.event_bus = event_bus
+        self.context = context
+
+        self.router = ExecutorRouter(context)
+
         self.queue = []
 
         self.event_bus.subscribe("order.request", self.enqueue)
@@ -31,14 +36,10 @@ class OrderExecutorWorker:
 
             logger.info("[ORDER EXECUTOR] executing order %s", order)
 
-            filled = {
-                "symbol": order["symbol"],
-                "action": order["side"],
-                "price": order["price"],
-                "qty": order.get("qty", 1),
-                "strategy": order.get("strategy")
-            }
+            filled = self.router.execute(order)
 
-            self.event_bus.publish("ORDER_FILLED", filled)
+            if filled:
 
-            logger.info("[ORDER EXECUTOR] ORDER_FILLED published")
+                self.event_bus.publish("ORDER_FILLED", filled)
+
+                logger.info("[ORDER EXECUTOR] ORDER_FILLED published")

@@ -9,9 +9,7 @@ class SignalRankingWorker:
     MAX_SIGNALS = 5
     RANK_INTERVAL = 1
     BUFFER_SIZE = 200
-
-    # 🔴 normalization window
-    NORMALIZE_WINDOW = 100
+    NORMALIZE_WINDOW = 200
 
     def __init__(self, bus):
 
@@ -19,7 +17,6 @@ class SignalRankingWorker:
 
         self.buffer = deque(maxlen=self.BUFFER_SIZE)
 
-        # 🔴 alpha history
         self.alpha_history = deque(maxlen=self.NORMALIZE_WINDOW)
 
         self.bus.subscribe(
@@ -78,7 +75,6 @@ class SignalRankingWorker:
 
         raw_alpha = self.alpha_score(signal)
 
-        # 🔴 history 저장
         self.alpha_history.append(raw_alpha)
 
         norm_alpha = self.normalize_alpha(raw_alpha)
@@ -101,30 +97,61 @@ class SignalRankingWorker:
 
         atr = signal.get("atr")
 
+        if not price:
+            return 0
+
         score = 0
 
-        if price and ema:
-            momentum = (price - ema) / ema
-            score += momentum * 200
+        # -------------------------
+        # Trend alignment
+        # -------------------------
 
-        if price and vwap:
-            vwap_gap = (price - vwap) / vwap
-            score += vwap_gap * 150
+        trend = 0
 
-        score += volume_ratio * 25
+        if ema:
+            trend += (price - ema) / ema
 
-        score += price_change * 300
+        if vwap:
+            trend += (price - vwap) / vwap
+
+        trend_score = trend * 200
+
+        # -------------------------
+        # Momentum
+        # -------------------------
+
+        momentum_score = price_change * 300
+
+        # -------------------------
+        # Liquidity pressure
+        # -------------------------
+
+        liquidity_score = volume_ratio * 30
+
+        # -------------------------
+        # Volatility penalty
+        # -------------------------
+
+        volatility_penalty = 0
 
         if atr and price:
-            vol_factor = atr / price
-            score -= vol_factor * 120
+
+            vol = atr / price
+
+            volatility_penalty = vol * 150
+
+        score = (
+            trend_score
+            + momentum_score
+            + liquidity_score
+            - volatility_penalty
+        )
 
         return score
 
-    # 🔴 alpha normalization
     def normalize_alpha(self, alpha):
 
-        if len(self.alpha_history) < 10:
+        if len(self.alpha_history) < 20:
             return alpha
 
         mean = statistics.mean(self.alpha_history)
@@ -135,7 +162,6 @@ class SignalRankingWorker:
 
         z = (alpha - mean) / stdev
 
-        # clamp extreme values
         z = max(-3, min(3, z))
 
         return z

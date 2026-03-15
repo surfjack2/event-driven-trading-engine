@@ -63,7 +63,9 @@ class PortfolioWorker:
         symbol = fill["symbol"]
         strategy = fill.get("strategy")
 
-        if fill["action"] == "BUY":
+        side = fill.get("side")
+
+        if side == "BUY":
 
             position = {
                 "symbol": symbol,
@@ -77,7 +79,10 @@ class PortfolioWorker:
             self.positions[symbol] = position
 
             logger.info(
-                f"[PORTFOLIO] OPEN symbol={symbol} qty={position['qty']} entry={position['entry_price']}"
+                "[PORTFOLIO] OPEN symbol=%s qty=%s entry=%s",
+                symbol,
+                position["qty"],
+                position["entry_price"]
             )
 
             self.event_bus.publish(
@@ -94,7 +99,7 @@ class PortfolioWorker:
                 }
             )
 
-        elif fill["action"] == "SELL":
+        elif side == "SELL":
 
             if symbol in self.positions:
 
@@ -112,7 +117,10 @@ class PortfolioWorker:
                 }
 
                 logger.info(
-                    f"[PORTFOLIO] CLOSE symbol={symbol} qty={pos['qty']} pnl={pnl}"
+                    "[PORTFOLIO] CLOSE symbol=%s qty=%s pnl=%s",
+                    symbol,
+                    pos["qty"],
+                    pnl
                 )
 
                 self.event_bus.publish(
@@ -134,7 +142,8 @@ class PortfolioWorker:
         reason = data.get("reason")
 
         logger.error(
-            f"[PORTFOLIO] CLOSE ALL POSITIONS reason={reason}"
+            "[PORTFOLIO] CLOSE ALL POSITIONS reason=%s",
+            reason
         )
 
         for symbol, pos in list(self.positions.items()):
@@ -153,5 +162,7 @@ class PortfolioWorker:
             )
 
             logger.error(
-                f"[PORTFOLIO] emergency sell symbol={symbol} qty={qty}"
+                "[PORTFOLIO] emergency sell symbol=%s qty=%s",
+                symbol,
+                qty
             )

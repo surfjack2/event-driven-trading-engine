@@ -5,7 +5,8 @@ from ltb.system.logger import logger
 
 class SignalPersistenceWorker:
 
-    PERSIST_TICKS = 2
+    # 개발 단계에서는 완화
+    PERSIST_TICKS = 1
     WINDOW = 10
 
     def __init__(self, bus):
@@ -37,19 +38,6 @@ class SignalPersistenceWorker:
         buffer.append(signal)
 
         if len(buffer) < self.PERSIST_TICKS:
-            return
-
-        valid = True
-
-        base_price = buffer[0]["price"]
-
-        for s in buffer:
-
-            if s["price"] < base_price:
-                valid = False
-                break
-
-        if not valid:
             return
 
         logger.info(

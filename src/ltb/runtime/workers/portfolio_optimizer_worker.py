@@ -6,8 +6,8 @@ from ltb.system.logger import logger
 
 class PortfolioOptimizerWorker:
 
-    MAX_TOTAL_POSITIONS = 8
-    OPTIMIZER_MAX_SELECTION = 2
+    MAX_TOTAL_POSITIONS = 3
+    OPTIMIZER_MAX_SELECTION = 1
     FLUSH_INTERVAL = 1.0
 
     STRATEGY_QUOTA = {

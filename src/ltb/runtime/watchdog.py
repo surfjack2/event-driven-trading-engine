@@ -126,7 +126,7 @@ def main():
         # market
         # =========================
 
-        MarketWorker(bus),
+        MarketWorker(bus, context),
 
         MarketCalendarWorker(bus),
         MarketSessionWorker(bus),
@@ -179,8 +179,8 @@ def main():
         # execution
         # =========================
 
-        ExecutionWorker(bus),
-        OrderExecutorWorker(bus),
+        ExecutionWorker(bus, context),
+        OrderExecutorWorker(bus, context),
 
         # =========================
         # portfolio

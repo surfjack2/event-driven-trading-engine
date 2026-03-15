@@ -4,7 +4,7 @@ from ltb.system.logger import logger
 
 class PositionTimeStopWorker:
 
-    MAX_HOLD_SECONDS = 300  # 5 minutes
+    MAX_HOLD_SECONDS = 3600  # 1 hour
     MIN_HOLD_SECONDS = 30
 
     # 🔴 time stop 적용 기준
