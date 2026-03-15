@@ -22,7 +22,9 @@ class CorrelationFilterWorker:
 
         self.positions = set()
 
-        self.bus.subscribe("filtered.intent", self.on_intent)
+        # 🔴 FIX: intent.signal을 받아야 한다
+        self.bus.subscribe("intent.signal", self.on_intent)
+
         self.bus.subscribe("market.indicator", self.on_price)
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
@@ -59,13 +61,21 @@ class CorrelationFilterWorker:
 
         # 포지션 없으면 통과
         if not self.positions:
-            self.bus.publish("filtered.intent", signal)
+
+            self.bus.publish(
+                "filtered.intent",
+                signal
+            )
             return
 
         history = self.price_history.get(symbol)
 
         if not history or len(history) < self.CORR_WINDOW:
-            self.bus.publish("filtered.intent", signal)
+
+            self.bus.publish(
+                "filtered.intent",
+                signal
+            )
             return
 
         new_series = np.array(history)
