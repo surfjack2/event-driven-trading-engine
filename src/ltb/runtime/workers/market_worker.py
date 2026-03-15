@@ -21,12 +21,75 @@ class MarketWorker:
         self.prices = {}
         self.prev_prices = {}
 
-        for symbol in self.universe:
+        # -----------------------------
+        # BACKTEST / PAPER 초기화
+        # -----------------------------
 
-            base_price = 55000 + random.uniform(-1000, 1000)
+        if context.is_backtest() or context.is_paper():
 
-            self.prices[symbol] = base_price
-            self.prev_prices[symbol] = None
+            for symbol in self.universe:
+
+                base_price = 55000 + random.uniform(-1000, 1000)
+
+                self.prices[symbol] = base_price
+                self.prev_prices[symbol] = None
+
+        # -----------------------------
+        # LIVE 초기화
+        # -----------------------------
+
+        if context.is_live():
+
+            logger.info("[MARKET WORKER] live market mode")
+
+            for symbol in self.universe:
+
+                self.prices[symbol] = None
+                self.prev_prices[symbol] = None
+
+    # ---------------------------------
+    # BACKTEST / PAPER market generator
+    # ---------------------------------
+
+    def _mock_market_tick(self):
+
+        symbol = random.choice(self.universe)
+
+        move = random.uniform(-200, 200)
+
+        self.prices[symbol] += move
+
+        price = float(self.prices[symbol])
+
+        volume = random.randint(1000, 10000)
+
+        event = {
+            "symbol": symbol,
+            "price": price,
+            "volume": volume,
+            "prev_price": self.prev_prices[symbol],
+        }
+
+        self.prev_prices[symbol] = price
+
+        return event
+
+    # ---------------------------------
+    # LIVE market placeholder
+    # ---------------------------------
+
+    def _live_market_tick(self):
+
+        # 실제 구현은
+        # KIS / Upbit websocket 연결 예정
+
+        time.sleep(1)
+
+        return None
+
+    # ---------------------------------
+    # main loop
+    # ---------------------------------
 
     def run(self):
 
@@ -34,30 +97,25 @@ class MarketWorker:
 
         while True:
 
-            symbol = random.choice(self.universe)
+            if self.context.is_backtest() or self.context.is_paper():
 
-            move = random.uniform(-200, 200)
+                event = self._mock_market_tick()
 
-            self.prices[symbol] += move
+            elif self.context.is_live():
 
-            price = float(self.prices[symbol])
+                event = self._live_market_tick()
 
-            volume = random.randint(1000, 10000)
+            else:
 
-            event = {
-                "symbol": symbol,
-                "price": price,
-                "volume": volume,
-                "prev_price": self.prev_prices[symbol],
-            }
+                event = None
 
-            self.event_bus.publish("market.price", event)
-            self.event_bus.publish("MARKET_TICK", event)
+            if event:
 
-            logger.debug(
-                f"[MARKET] {symbol} price={price} volume={volume}"
-            )
+                self.event_bus.publish("market.price", event)
+                self.event_bus.publish("MARKET_TICK", event)
 
-            self.prev_prices[symbol] = price
+                logger.debug(
+                    f"[MARKET] {event['symbol']} price={event['price']} volume={event['volume']}"
+                )
 
             time.sleep(0.02)
