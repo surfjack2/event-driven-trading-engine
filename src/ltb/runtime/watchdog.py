@@ -3,6 +3,11 @@ import time
 
 from ltb.runtime.queue_bus import QueueBus
 
+# system context
+from ltb.system.context.system_context import SystemContext
+from ltb.system.context.mode import SystemMode
+from ltb.system.context.market import MarketType
+
 # market
 from ltb.runtime.workers.market_worker import MarketWorker
 from ltb.runtime.workers.market_calendar_worker import MarketCalendarWorker
@@ -99,6 +104,19 @@ def start_worker(worker):
 def main():
 
     logger.info("=== LTB ENGINE PROCESS STARTED ===")
+
+    # =========================
+    # SYSTEM CONTEXT
+    # =========================
+
+    context = SystemContext(
+        mode=SystemMode.BACKTEST,
+        market=MarketType.US
+    )
+
+    logger.info(
+        f"[SYSTEM CONTEXT] mode={context.mode} market={context.market}"
+    )
 
     bus = QueueBus()
 
