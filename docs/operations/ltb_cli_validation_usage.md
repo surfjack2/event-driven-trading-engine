@@ -4,188 +4,123 @@ Operational Usage Guide
 
 Purpose
 
-Provide instructions for using the LTB Validation Monitor
-to diagnose trading engine behavior and system health.
+Provide instructions for running the LTB engine and using the
+Validation Monitor CLI dashboard.
+
+The CLI monitor displays engine health, signal pipeline flow,
+portfolio statistics, strategy performance, and system diagnostics
+in a single screen.
 
 
 --------------------------------------------------
-STARTING THE ENGINE
+ENGINE EXECUTION
 --------------------------------------------------
 
-Run the engine
+The LTB engine is executed from the project root.
 
-python main.py
+Execution command
+
+PYTHONPATH=src python3 main.py [mode]
 
 
-The validation monitor runs automatically as part
-of the engine worker system.
+Supported modes
+
+backtest
+paper
+live
+
+
+Examples
+
+PYTHONPATH=src python3 main.py backtest
+
+PYTHONPATH=src python3 main.py paper
+
+PYTHONPATH=src python3 main.py live
+
+
+--------------------------------------------------
+CONSOLE OUTPUT POLICY
+--------------------------------------------------
+
+The console is reserved exclusively for the Validation Monitor UI.
+
+All system logs are written to log files.
+
+Log directory
+
+logs/
+
+
+Examples
+
+logs/engine.log
+logs/market.log
+logs/strategy.log
+logs/trade.log
+logs/risk.log
+
+
+This separation ensures that the CLI monitor remains stable
+without log interference.
+
+
+--------------------------------------------------
+CLI DASHBOARD STRUCTURE
+--------------------------------------------------
+
+The monitor displays a single page dashboard.
+
+Sections
+
+ENGINE FLOW
+SIGNAL PIPELINE
+PORTFOLIO
+TRADING STATISTICS
+STRATEGY PERFORMANCE
+MARKET STATE
+SYSTEM HEALTH
 
 
 --------------------------------------------------
 DASHBOARD REFRESH
 --------------------------------------------------
 
-The CLI dashboard refreshes automatically.
+The CLI dashboard refresh interval is 3 seconds.
 
-Refresh interval
-
-3 seconds
+The screen is redrawn each refresh cycle to prevent scrolling.
 
 
 --------------------------------------------------
-CLI DASHBOARD SECTIONS
+SUPPORTED RUNTIME MODES
 --------------------------------------------------
-
-ENGINE
-
-Displays engine runtime status
-
-mode
-uptime
-worker count
-
-
---------------------------------------------------
-
-EVENT FLOW
-
-Displays runtime event throughput
-
-ticks per second
-signals per second
-orders per minute
-
-
---------------------------------------------------
-
-SIGNAL PIPELINE
-
-Displays signal filtering stages
-
-scanner symbols
-strategy signals
-ranked signals
-optimized signals
-
-
---------------------------------------------------
-
-PORTFOLIO
-
-Displays portfolio state
-
-active positions
-capital
-realized pnl
-unrealized pnl
-
-
---------------------------------------------------
-
-TRADING STATISTICS
-
-Displays aggregated trading performance
-
-total trades
-win rate
-profit factor
-expectancy
-max drawdown
-
-
---------------------------------------------------
-
-STRATEGY PERFORMANCE
-
-Displays per-strategy performance
-
-strategy name
-trade count
-pnl
-win rate
-profit factor
-
-
---------------------------------------------------
-
-SYSTEM HEALTH
-
-Displays engine runtime stability
-
-event queue size
-event lag
-error count
-
-
---------------------------------------------------
-
-MARKET REGIME
-
-Displays market environment state
-
-trend regime
-liquidity regime
-portfolio exposure
-
-
---------------------------------------------------
-DIAGNOSTIC WORKFLOW
---------------------------------------------------
-
-Typical troubleshooting procedure
-
-1. Check ENGINE status
-
-Verify engine mode and uptime
-
-
-2. Check EVENT FLOW
-
-Ensure market data and signals are flowing
-
-
-3. Check SIGNAL PIPELINE
-
-Confirm signals are progressing through filters
-
-
-4. Check PORTFOLIO
-
-Verify positions and pnl behavior
-
-
-5. Check STRATEGY PERFORMANCE
-
-Identify strategy underperformance
-
-
-6. Check SYSTEM HEALTH
-
-Verify queue stability and error counts
-
-
---------------------------------------------------
-SUPPORTED MODES
---------------------------------------------------
-
-Validation monitor supports all runtime modes
 
 BACKTEST
+
+Uses replay data or simulated market ticks.
+
+
 PAPER
+
+Connects to exchange paper trading environment.
+
+
 LIVE
+
+Connects to real market data and live execution systems.
 
 
 --------------------------------------------------
 OPERATIONAL BENEFITS
 --------------------------------------------------
 
-Reduces dependency on log inspection
+Real-time engine diagnostics.
 
-Provides real-time engine diagnostics
+Reduced dependency on log inspection.
 
-Accelerates debugging of trading logic
+Fast detection of strategy and pipeline failures.
 
-Improves monitoring during live trading
+Unified monitoring interface for development and live trading.
 
 
 --------------------------------------------------

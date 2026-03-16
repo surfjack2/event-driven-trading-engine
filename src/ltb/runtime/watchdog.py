@@ -65,6 +65,9 @@ from ltb.runtime.workers.alert_worker import AlertWorker
 from ltb.runtime.workers.killswitch_worker import KillSwitchWorker
 from ltb.runtime.workers.heartbeat_worker import HeartbeatWorker
 
+# validation monitor
+from ltb.runtime.workers.validation_monitor_worker import ValidationMonitorWorker
+
 from ltb.system.logger import logger
 
 
@@ -210,6 +213,10 @@ def main():
         # =========================
 
         AnalyticsWorker(bus),
+
+        # validation monitor (CLI dashboard)
+        ValidationMonitorWorker(bus, context),
+
         AlertWorker(bus),
         KillSwitchWorker(bus),
         HeartbeatWorker(bus),

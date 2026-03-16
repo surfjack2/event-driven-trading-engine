@@ -3,20 +3,30 @@ LTB VALIDATION MONITOR CLI DESIGN
 
 Purpose
 
-Provide a real-time diagnostic dashboard for the LTB engine.
+Provide a real-time terminal dashboard for the LTB trading engine.
 
-The monitor aggregates runtime events and displays system state,
-signal pipeline health, portfolio statistics, strategy performance,
-and system diagnostics in a single CLI page.
+The CLI monitor aggregates runtime events and displays
+system state information in a single screen.
 
-The dashboard refreshes automatically every 3 seconds.
+
+--------------------------------------------------
+CONSOLE DESIGN PRINCIPLE
+--------------------------------------------------
+
+The terminal console is dedicated to the Validation Monitor UI.
+
+System logs are written to log files instead of stdout.
+
+This prevents the monitor display from being disrupted by log output.
 
 
 --------------------------------------------------
 DISPLAY STRUCTURE
 --------------------------------------------------
 
-The CLI monitor displays a single page with the following sections:
+The dashboard is rendered as a single page.
+
+Sections
 
 ENGINE FLOW
 SIGNAL PIPELINE
@@ -31,9 +41,7 @@ SYSTEM HEALTH
 ENGINE FLOW
 --------------------------------------------------
 
-Displays event throughput.
-
-Metrics
+Shows event throughput metrics.
 
 ticks_per_second
 signals_per_second
@@ -45,7 +53,7 @@ fills_per_minute
 SIGNAL PIPELINE
 --------------------------------------------------
 
-Displays the number of signals passing through each layer.
+Displays the number of signals passing through each stage.
 
 scanner
 strategy
@@ -72,7 +80,7 @@ portfolio_heat
 TRADING STATISTICS
 --------------------------------------------------
 
-Displays aggregated trading performance.
+Aggregated trading metrics.
 
 total_trades
 win_rate
@@ -85,9 +93,9 @@ max_drawdown
 STRATEGY PERFORMANCE
 --------------------------------------------------
 
-Displays per-strategy performance.
+Per-strategy statistics.
 
-strategy_name
+strategy
 trades
 win_rate
 profit_factor
@@ -98,7 +106,7 @@ pnl
 MARKET STATE
 --------------------------------------------------
 
-Displays market environment.
+Market environment indicators.
 
 trend_regime
 liquidity_regime
@@ -109,7 +117,7 @@ portfolio_exposure
 SYSTEM HEALTH
 --------------------------------------------------
 
-Displays engine diagnostics.
+Engine diagnostics.
 
 event_queue_size
 error_count
@@ -117,80 +125,44 @@ worker_restarts
 
 
 --------------------------------------------------
-COLOR CODING
+COLOR INDICATORS
 --------------------------------------------------
 
-The CLI dashboard uses color indicators.
-
 GREEN
-normal operation
+
+Normal operation.
+
 
 YELLOW
-warning condition
+
+Warning condition.
+
 
 RED
-critical condition
+
+Critical condition requiring investigation.
 
 
-Example thresholds
+--------------------------------------------------
+SCREEN REFRESH MODEL
+--------------------------------------------------
 
-profit_factor
+The monitor uses a full-screen redraw approach.
 
-GREEN  > 1.5
-YELLOW 1.2 – 1.5
-RED    < 1.2
+Each refresh clears the terminal and redraws the dashboard.
 
-
-win_rate
-
-GREEN  > 0.50
-YELLOW 0.40 – 0.50
-RED    < 0.40
-
-
-portfolio_heat
-
-GREEN  < 0.05
-YELLOW 0.05 – 0.08
-RED    > 0.08
-
-
-event_queue_size
-
-GREEN  < 1000
-YELLOW 1000 – 3000
-RED    > 3000
+This prevents scrolling and maintains a stable UI layout.
 
 
 --------------------------------------------------
 REFRESH INTERVAL
 --------------------------------------------------
 
-The dashboard refresh interval is 3 seconds.
+Default refresh interval
 
+3 seconds
 
---------------------------------------------------
-SUPPORTED MODES
---------------------------------------------------
-
-The monitor supports all engine modes.
-
-BACKTEST
-PAPER
-LIVE
-
-
---------------------------------------------------
-BENEFITS
---------------------------------------------------
-
-Provides a real-time overview of the trading engine.
-
-Eliminates the need for extensive log inspection.
-
-Accelerates debugging and system validation.
-
-Supports both development and live trading monitoring.
 
 --------------------------------------------------
 END OF DOCUMENT
+--------------------------------------------------

@@ -1,90 +1,46 @@
-LTB ENGINE VALIDATION MONITOR
-Architecture Specification
+LTB VALIDATION MONITOR ARCHITECTURE
 --------------------------------------------------
 
-Purpose
+Overview
 
-The Validation Monitor provides a real-time diagnostics console
+The Validation Monitor provides a real-time diagnostic interface
 for the LTB trading engine.
 
-The monitor aggregates runtime events and displays engine health,
-signal pipeline metrics, portfolio status, trading statistics,
-and strategy performance in a single terminal dashboard.
-
-This component is designed to eliminate dependency on log inspection
-for routine diagnostics and validation.
+It aggregates runtime events and renders a terminal dashboard
+for monitoring engine health and trading activity.
 
 
 --------------------------------------------------
-SYSTEM OBJECTIVE
+ARCHITECTURE POSITION
 --------------------------------------------------
 
-Provide real-time monitoring for:
+The monitor operates as a runtime worker within the engine.
 
-engine runtime status
-event flow throughput
-signal pipeline filtering
-portfolio status
-trading performance
-strategy performance
-risk status
-market regime state
+Worker name
 
-
---------------------------------------------------
-ARCHITECTURE MODEL
---------------------------------------------------
-
-The validation monitor is implemented as a worker inside the
-event-driven runtime system.
-
-It subscribes to runtime events through the QueueBus and aggregates
-metrics for CLI display.
-
-Architecture Flow
-
-QueueBus
-    ↓
 ValidationMonitorWorker
-    ↓
-Metrics Aggregation
-    ↓
-CLI Dashboard Output (3s refresh)
+
+
+Integration location
+
+Runtime worker pipeline.
 
 
 --------------------------------------------------
-WORKER INTEGRATION
+EVENT SOURCES
 --------------------------------------------------
 
-ValidationMonitorWorker is registered in watchdog worker list.
-
-watchdog.py
-
-workers = [
-
-    ...
-    HeartbeatWorker(bus),
-
-    ValidationMonitorWorker(bus)
-
-]
-
-
---------------------------------------------------
-EVENT SUBSCRIPTIONS
---------------------------------------------------
-
-The monitor subscribes to the following runtime events.
+The monitor subscribes to multiple event topics.
 
 market.price
 strategy.signal
+persistent.signal
 ranked.signal
-liquidity.signal
 optimized.signal
 
 ORDER_FILLED
 
-portfolio.update
+POSITION_OPENED
 POSITION_CLOSED
 
 strategy.performance
@@ -95,207 +51,79 @@ portfolio.exposure
 
 
 --------------------------------------------------
-METRICS COLLECTION MODEL
+DATA COLLECTION MODEL
 --------------------------------------------------
 
-The monitor collects the following metrics.
+The monitor maintains in-memory counters for:
 
-
---------------------------------------------------
-ENGINE STATUS
---------------------------------------------------
-
-mode
-engine uptime
-worker count
+event throughput
+signal pipeline counts
+portfolio state
+strategy performance
 
 
 --------------------------------------------------
-EVENT FLOW METRICS
+DISPLAY LAYER
 --------------------------------------------------
 
-ticks_per_second
-signals_per_second
-orders_per_minute
+The CLI dashboard renders a single page terminal interface.
 
+Sections include
 
---------------------------------------------------
-SIGNAL PIPELINE METRICS
---------------------------------------------------
-
-scanner_symbols
-strategy_signals
-ranked_signals
-liquidity_passed
-optimized_signals
-execution_orders
+Engine flow
+Signal pipeline
+Portfolio metrics
+Trading statistics
+Strategy performance
+Market state
+System diagnostics
 
 
 --------------------------------------------------
-PORTFOLIO STATUS
+CONSOLE OUTPUT POLICY
 --------------------------------------------------
 
-current_positions
-capital
-realized_pnl
-unrealized_pnl
-portfolio_heat
+The console output is reserved exclusively for the monitor UI.
 
+System logs are written to log files.
 
---------------------------------------------------
-TRADING STATISTICS
---------------------------------------------------
-
-total_trades
-win_rate
-loss_rate
-
-profit_factor
-
-average_win
-average_loss
-
-largest_win
-largest_loss
-
-expectancy
-
-max_drawdown
+This design ensures that the monitor screen remains stable
+and free from log interference.
 
 
 --------------------------------------------------
-STRATEGY PERFORMANCE
+REFRESH MECHANISM
 --------------------------------------------------
 
-strategy
-trades
-pnl
-win_rate
-profit_factor
-score
+The dashboard refreshes at a fixed interval.
 
-
---------------------------------------------------
-SYSTEM HEALTH
---------------------------------------------------
-
-event_queue_size
-event_lag
-worker_crashes
-error_count
-
-
---------------------------------------------------
-MARKET STATE
---------------------------------------------------
-
-trend_regime
-liquidity_regime
-portfolio_exposure
-
-
---------------------------------------------------
-CLI DASHBOARD STRUCTURE
---------------------------------------------------
-
-The CLI dashboard refreshes every 3 seconds.
-
-All runtime metrics are displayed in a single terminal screen.
-
-
-Example Layout
-
---------------------------------------------------
-
-LTB ENGINE VALIDATION
-================================================================
-
-ENGINE
-mode: PAPER | uptime: 00:04:12 | workers: 32
-
-------------------------------------------------
-
-EVENT FLOW
-ticks/sec 45 | signals/sec 3 | orders/min 1
-
-SIGNAL PIPELINE
-scanner 200 | strategy 12 | ranked 9 | optimized 2
-
-------------------------------------------------
-
-PORTFOLIO
-positions 2 | capital 10,250,000
-realized pnl +12,000 | unrealized pnl +35,000
-
-------------------------------------------------
-
-TRADING STATS
-trades 42 | winrate 52.3% | PF 1.84 | expectancy +410
-
-------------------------------------------------
-
-STRATEGY PERFORMANCE
-vwap_breakout   +18,000
-atr_trend       +12,000
-rsi_reversion   -3,200
-
-------------------------------------------------
-
-SYSTEM HEALTH
-queue 8 | lag 0 | errors 0
-
-MARKET REGIME
-trend bull | liquidity expansion | exposure 0.9
-
-
---------------------------------------------------
-REFRESH MODEL
---------------------------------------------------
-
-Dashboard refresh interval
+Default
 
 3 seconds
 
 
---------------------------------------------------
-SYSTEM MODES
---------------------------------------------------
+Rendering model
 
-The validation monitor operates identically under all system modes.
+Full screen redraw.
+
+
+--------------------------------------------------
+SUPPORTED MODES
+--------------------------------------------------
 
 BACKTEST
+
+Replay or simulated market data.
+
+
 PAPER
+
+Paper trading with exchange API.
+
+
 LIVE
 
-
---------------------------------------------------
-DESIGN BENEFITS
---------------------------------------------------
-
-Eliminates reliance on log inspection.
-
-Provides real-time insight into signal pipeline flow.
-
-Enables rapid validation of strategy performance.
-
-Detects system health problems immediately.
-
-Supports both research and production trading.
-
-
---------------------------------------------------
-FUTURE EXTENSIONS
---------------------------------------------------
-
-Possible upgrades:
-
-Web dashboard integration
-
-Historical performance visualization
-
-Multi-engine monitoring
-
-Remote monitoring interface
+Live market execution.
 
 
 --------------------------------------------------
