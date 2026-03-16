@@ -5,7 +5,7 @@ from ltb.system.logger import logger
 
 class SignalPersistenceWorker:
 
-    # 개발 단계에서는 완화
+    # 개발 단계 테스트용
     PERSIST_TICKS = 2
     WINDOW = 10
 

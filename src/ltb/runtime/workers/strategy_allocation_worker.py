@@ -26,7 +26,7 @@ class StrategyAllocationWorker:
         self.liquidity_regime = "NORMAL"
 
         # 🔴 pipeline 연결 수정
-        self.bus.subscribe("liquidity.signal", self.on_signal)
+        self.bus.subscribe("ranked.signal", self.on_signal)
 
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
         self.bus.subscribe("strategy.performance", self.on_performance)
@@ -87,7 +87,7 @@ class StrategyAllocationWorker:
         )
 
         # 🔴 optimizer pipeline 연결
-        self.bus.publish("filtered.intent", signal)
+        self.bus.publish("optimized.signal", signal)
 
     def on_trade_closed(self, trade):
 
