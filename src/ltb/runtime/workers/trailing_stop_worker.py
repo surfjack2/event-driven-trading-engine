@@ -7,9 +7,10 @@ class TrailingStopWorker:
     ATR_MULTIPLIER = 2
     MIN_HOLD_SECONDS = 20
 
-    def __init__(self, event_bus):
+    def __init__(self, event_bus, exit_manager):
 
         self.event_bus = event_bus
+        self.exit_manager = exit_manager
 
         self.positions = {}
         self.entry_time = {}
@@ -21,7 +22,7 @@ class TrailingStopWorker:
         self.event_bus.subscribe("POSITION_OPENED", self.handle_position)
         self.event_bus.subscribe("POSITION_CLOSED", self.handle_close)
 
-        # 🔴 indicator 기반으로 통일
+        # indicator 기반
         self.event_bus.subscribe("market.indicator", self.handle_price)
         self.event_bus.subscribe("market.indicator", self.handle_indicator)
 
@@ -107,6 +108,10 @@ class TrailingStopWorker:
         stop_price = pos["highest_price"] - atr * self.ATR_MULTIPLIER
 
         if price <= stop_price:
+
+            # 🔴 ExitManager gate
+            if not self.exit_manager.request_exit(symbol):
+                return
 
             logger.info(
                 "[ATR STOP TRIGGERED] %s price=%s stop=%s",

@@ -6,9 +6,11 @@ class PortfolioWorker:
 
     TIME_STOP_SECONDS = 3600
 
-    def __init__(self, event_bus):
+    def __init__(self, event_bus, exit_manager):
 
         self.event_bus = event_bus
+        self.exit_manager = exit_manager
+
         self.positions = {}
 
         self.event_bus.subscribe(
@@ -40,6 +42,10 @@ class PortfolioWorker:
 
                 if hold_time > self.TIME_STOP_SECONDS:
 
+                    # 🔴 ExitManager gate
+                    if not self.exit_manager.request_exit(symbol):
+                        continue
+
                     logger.info(
                         "[TIME STOP EXIT] symbol=%s hold_time=%s",
                         symbol,
@@ -63,7 +69,7 @@ class PortfolioWorker:
         symbol = fill["symbol"]
         strategy = fill.get("strategy")
 
-        side = fill.get("side")
+        side = fill.get("side") or fill.get("action")
         price = fill.get("price")
 
         if side == "BUY":
@@ -125,6 +131,9 @@ class PortfolioWorker:
                     pnl
                 )
 
+                # 🔴 exit 상태 해제
+                self.exit_manager.clear(symbol)
+
                 self.event_bus.publish(
                     "POSITION_CLOSED",
                     trade
@@ -150,6 +159,9 @@ class PortfolioWorker:
         )
 
         for symbol, pos in list(self.positions.items()):
+
+            if not self.exit_manager.request_exit(symbol):
+                continue
 
             qty = pos["qty"]
 

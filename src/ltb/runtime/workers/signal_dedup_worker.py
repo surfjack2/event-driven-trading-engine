@@ -10,7 +10,7 @@ class SignalDedupWorker:
 
         self.bus = bus
 
-        # symbol → (timestamp, alpha_score)
+        # (symbol, strategy) → (timestamp, alpha_score)
         self.last_signal = {}
 
         self.bus.subscribe(
@@ -28,43 +28,51 @@ class SignalDedupWorker:
     def on_signal(self, signal):
 
         symbol = signal["symbol"]
+        strategy = signal.get("strategy")
+
+        key = (symbol, strategy)
+
         now = time.time()
 
-        alpha = signal.get("alpha_score", 0)
+        alpha = signal.get("alpha_score")
 
-        last = self.last_signal.get(symbol)
+        if alpha is None:
+            alpha = 0
+
+        last = self.last_signal.get(key)
 
         if last:
 
             last_time, last_alpha = last
 
-            # TTL 내 duplicate 처리
+            # TTL duplicate filtering
             if now - last_time < self.DUP_TTL:
 
-                # alpha가 더 강하면 교체
                 if alpha <= last_alpha:
 
                     logger.debug(
-                        "[DEDUP] filtered weaker signal %s alpha=%.3f",
+                        "[DEDUP] filtered weaker signal %s %s alpha=%.3f",
                         symbol,
+                        strategy,
                         alpha
                     )
 
                     return
 
                 logger.info(
-                    "[DEDUP] replaced weaker signal %s old=%.3f new=%.3f",
+                    "[DEDUP] replaced weaker signal %s %s old=%.3f new=%.3f",
                     symbol,
+                    strategy,
                     last_alpha,
                     alpha
                 )
 
-        self.last_signal[symbol] = (now, alpha)
+        self.last_signal[key] = (now, alpha)
 
         logger.info(
             "[DEDUP] passed %s strategy=%s alpha=%.3f",
             symbol,
-            signal.get("strategy"),
+            strategy,
             alpha
         )
 

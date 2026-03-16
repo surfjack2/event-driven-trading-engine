@@ -52,7 +52,7 @@ class PositionSizer:
         qty = min(qty, max_qty_cap)
 
         if qty < 1:
-            qty = 1
+            return 0
 
         logger.info(
             "[POSITION SIZE] capital=%s risk=%s stop=%s qty=%s weight=%s multiplier=%s alpha=%s",

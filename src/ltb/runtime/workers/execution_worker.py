@@ -47,7 +47,6 @@ class ExecutionWorker:
         self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
         self.bus.subscribe("system.halt", self.on_system_halt)
 
-        # strategy performance feedback
         self.bus.subscribe(
             "strategy.performance",
             self.on_strategy_performance
@@ -59,6 +58,29 @@ class ExecutionWorker:
 
         while True:
             time.sleep(1)
+
+    def publish_block(self, symbol, reason):
+
+        self.bus.publish(
+            "execution.block",
+            {
+                "symbol": symbol,
+                "reason": reason
+            }
+        )
+
+    def publish_sizing(self, symbol, qty, price, alpha, weight):
+
+        self.bus.publish(
+            "execution.sizing",
+            {
+                "symbol": symbol,
+                "qty": qty,
+                "price": price,
+                "alpha": alpha,
+                "weight": weight
+            }
+        )
 
     def on_strategy_performance(self, data):
 
@@ -89,7 +111,6 @@ class ExecutionWorker:
             self.positions.pop(symbol, None)
             self.position_risk.pop(symbol, None)
 
-            # RiskEngine 동기화
             self.risk.update_position(symbol, 0, 0)
 
             if strategy and strategy in self.strategy_positions:
@@ -103,7 +124,6 @@ class ExecutionWorker:
 
             self.positions[symbol] = position
 
-            # RiskEngine 동기화
             self.risk.update_position(symbol, position, price)
 
             if strategy:
@@ -123,8 +143,9 @@ class ExecutionWorker:
         price = signal["price"]
         atr = signal.get("atr")
 
+        # fallback ATR (1% volatility proxy)
         if not atr:
-            return None
+            atr = price * 0.01
 
         return price - atr * self.ATR_MULTIPLIER
 
@@ -169,14 +190,18 @@ class ExecutionWorker:
         strategy = signal.get("strategy")
 
         if symbol in self.positions:
+            self.publish_block(symbol, "already_position")
             return
 
         if symbol in self.pending_orders:
+            self.publish_block(symbol, "pending_order")
             return
 
         if len(self.positions) >= self.MAX_TOTAL_POSITIONS:
 
             logger.info("[EXECUTION BLOCK] max positions reached")
+
+            self.publish_block(symbol, "max_positions")
 
             return
 
@@ -189,12 +214,11 @@ class ExecutionWorker:
                 strategy
             )
 
+            self.publish_block(symbol, "strategy_limit")
+
             return
 
         stop_price = self.calculate_stop_price(signal)
-
-        if stop_price is None:
-            return
 
         alpha = signal.get("alpha_score", 0)
         weight = signal.get("allocation_weight", 1.0)
@@ -209,7 +233,10 @@ class ExecutionWorker:
             alpha=alpha
         )
 
+        self.publish_sizing(symbol, qty, price, alpha, weight)
+
         if qty <= 0:
+            self.publish_block(symbol, "position_size_zero")
             return
 
         position_risk = abs(price - stop_price) * qty
@@ -225,9 +252,12 @@ class ExecutionWorker:
                 portfolio_heat
             )
 
+            self.publish_block(symbol, "portfolio_heat")
+
             return
 
         if not self.risk.check(symbol, qty, price):
+            self.publish_block(symbol, "risk_engine")
             return
 
         order = {

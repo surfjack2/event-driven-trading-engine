@@ -5,9 +5,9 @@ from ltb.system.logger import logger
 
 class SignalPersistenceWorker:
 
-    # 개발 단계 테스트용
-    PERSIST_TICKS = 2
-    WINDOW = 10
+    # 안정성 강화
+    PERSIST_TICKS = 3
+    WINDOW = 15
 
     def __init__(self, bus):
 

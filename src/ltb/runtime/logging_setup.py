@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 
 def setup_logging():
@@ -12,55 +13,98 @@ def setup_logging():
 
     root = logging.getLogger()
 
-    # 기존 콘솔 핸들러 제거
+    root.setLevel(logging.INFO)
+
+    # 기존 핸들러 제거
     for handler in root.handlers[:]:
         root.removeHandler(handler)
 
-    root.setLevel(logging.INFO)
+    # -----------------------------
+    # Console logging (추가)
+    # -----------------------------
 
-    # engine (root)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+
+    root.addHandler(console_handler)
+
+    # -----------------------------
+    # Engine log file
+    # -----------------------------
+
     engine_handler = logging.FileHandler("logs/engine.log")
     engine_handler.setFormatter(formatter)
+
     root.addHandler(engine_handler)
 
-    # market
+    # -----------------------------
+    # Market
+    # -----------------------------
+
     market_logger = logging.getLogger("MARKET")
     market_logger.propagate = False
+
     market_handler = logging.FileHandler("logs/market.log")
     market_handler.setFormatter(formatter)
+
     market_logger.addHandler(market_handler)
 
-    # strategy
+    # -----------------------------
+    # Strategy
+    # -----------------------------
+
     strategy_logger = logging.getLogger("STRATEGY")
     strategy_logger.propagate = False
+
     strategy_handler = logging.FileHandler("logs/strategy.log")
     strategy_handler.setFormatter(formatter)
+
     strategy_logger.addHandler(strategy_handler)
 
-    # trade
+    # -----------------------------
+    # Order / Trade
+    # -----------------------------
+
     trade_logger = logging.getLogger("ORDER")
     trade_logger.propagate = False
+
     trade_handler = logging.FileHandler("logs/trade.log")
     trade_handler.setFormatter(formatter)
+
     trade_logger.addHandler(trade_handler)
 
-    # portfolio
+    # -----------------------------
+    # Portfolio
+    # -----------------------------
+
     portfolio_logger = logging.getLogger("PORTFOLIO")
     portfolio_logger.propagate = False
+
     portfolio_handler = logging.FileHandler("logs/portfolio.log")
     portfolio_handler.setFormatter(formatter)
+
     portfolio_logger.addHandler(portfolio_handler)
 
-    # risk
+    # -----------------------------
+    # Risk
+    # -----------------------------
+
     risk_logger = logging.getLogger("RISK")
     risk_logger.propagate = False
+
     risk_handler = logging.FileHandler("logs/risk.log")
     risk_handler.setFormatter(formatter)
+
     risk_logger.addHandler(risk_handler)
 
-    # trail
+    # -----------------------------
+    # Trailing / Stop
+    # -----------------------------
+
     trail_logger = logging.getLogger("TRAIL")
     trail_logger.propagate = False
+
     trail_handler = logging.FileHandler("logs/trail.log")
     trail_handler.setFormatter(formatter)
+
     trail_logger.addHandler(trail_handler)

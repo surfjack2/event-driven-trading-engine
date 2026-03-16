@@ -6,9 +6,10 @@ class SignalDecayExitWorker:
 
     MIN_HOLD_SECONDS = 20
 
-    def __init__(self, bus):
+    def __init__(self, bus, exit_manager):
 
         self.bus = bus
+        self.exit_manager = exit_manager
 
         self.positions = {}
         self.entry_time = {}
@@ -84,6 +85,10 @@ class SignalDecayExitWorker:
             decay = True
 
         if not decay:
+            return
+
+        # 🔴 ExitManager gate
+        if not self.exit_manager.request_exit(symbol):
             return
 
         pos = self.positions[symbol]

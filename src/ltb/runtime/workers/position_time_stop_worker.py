@@ -4,15 +4,15 @@ from ltb.system.logger import logger
 
 class PositionTimeStopWorker:
 
-    MAX_HOLD_SECONDS = 3600  # 1 hour
+    MAX_HOLD_SECONDS = 3600
     MIN_HOLD_SECONDS = 30
 
-    # 🔴 time stop 적용 기준
-    PROFIT_THRESHOLD = 0.002  # 0.2%
+    PROFIT_THRESHOLD = 0.002
 
-    def __init__(self, bus):
+    def __init__(self, bus, exit_manager):
 
         self.bus = bus
+        self.exit_manager = exit_manager
 
         self.positions = {}
         self.entry_time = {}
@@ -78,11 +78,9 @@ class PositionTimeStopWorker:
 
         hold_time = time.time() - entry_time
 
-        # 최소 보유 시간
         if hold_time < self.MIN_HOLD_SECONDS:
             return
 
-        # 최대 보유 시간 미만이면 검사만
         if hold_time < self.MAX_HOLD_SECONDS:
             return
 
@@ -100,7 +98,6 @@ class PositionTimeStopWorker:
 
         pnl = (price - entry_price) / entry_price
 
-        # 🔴 수익 중이면 유지
         if pnl >= self.PROFIT_THRESHOLD:
 
             logger.info(
@@ -110,6 +107,10 @@ class PositionTimeStopWorker:
                 int(hold_time)
             )
 
+            return
+
+        # 🔴 ExitManager gate
+        if not self.exit_manager.request_exit(symbol):
             return
 
         logger.info(

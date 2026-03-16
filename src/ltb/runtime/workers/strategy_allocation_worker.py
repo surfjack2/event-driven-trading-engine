@@ -7,6 +7,10 @@ class StrategyAllocationWorker:
     MIN_WEIGHT = 0.05
     MAX_WEIGHT = 0.6
 
+    # 🔴 안정화 파라미터
+    REBALANCE_INTERVAL = 10
+    MIN_CHANGE = 0.03
+
     def __init__(self, bus):
 
         self.bus = bus
@@ -25,7 +29,9 @@ class StrategyAllocationWorker:
         self.market_regime = "neutral"
         self.liquidity_regime = "NORMAL"
 
-        # 🔴 pipeline 연결 수정
+        self.last_rebalance = 0
+
+        # 🔴 pipeline 연결
         self.bus.subscribe("ranked.signal", self.on_signal)
 
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
@@ -86,8 +92,8 @@ class StrategyAllocationWorker:
             self.liquidity_regime
         )
 
-        # 🔴 optimizer pipeline 연결
-        self.bus.publish("optimized.signal", signal)
+        # 🔴 optimizer pipeline
+        self.bus.publish("allocation.signal", signal)
 
     def on_trade_closed(self, trade):
 
@@ -126,6 +132,12 @@ class StrategyAllocationWorker:
 
     def rebalance(self):
 
+        now = time.time()
+
+        # 🔴 throttle
+        if now - self.last_rebalance < self.REBALANCE_INTERVAL:
+            return
+
         scores = {}
 
         for strategy, stat in self.strategy_stats.items():
@@ -145,7 +157,7 @@ class StrategyAllocationWorker:
 
         total = sum(scores.values())
 
-        weights = {}
+        new_weights = {}
 
         for strategy, score in scores.items():
 
@@ -153,15 +165,30 @@ class StrategyAllocationWorker:
 
             w = max(self.MIN_WEIGHT, min(self.MAX_WEIGHT, w))
 
-            weights[strategy] = w
+            new_weights[strategy] = w
 
-        norm = sum(weights.values())
+        norm = sum(new_weights.values())
 
-        for k in weights:
+        for k in new_weights:
+            new_weights[k] = round(new_weights[k] / norm, 2)
 
-            weights[k] = round(weights[k] / norm, 2)
+        # 🔴 변화량 체크
+        changed = False
 
-        self.allocations.update(weights)
+        for k, v in new_weights.items():
+
+            old = self.allocations.get(k, 0)
+
+            if abs(old - v) > self.MIN_CHANGE:
+                changed = True
+                break
+
+        if not changed:
+            return
+
+        self.allocations.update(new_weights)
+
+        self.last_rebalance = now
 
         logger.info(
             "[ALLOCATION] normalized weights %s trend=%s liquidity=%s",

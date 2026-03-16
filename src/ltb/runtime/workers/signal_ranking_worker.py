@@ -1,6 +1,6 @@
 import time
+import math
 from collections import deque
-import statistics
 from ltb.system.logger import logger
 
 
@@ -9,14 +9,12 @@ class SignalRankingWorker:
     MAX_SIGNALS = 5
     RANK_INTERVAL = 1
     BUFFER_SIZE = 200
-    NORMALIZE_WINDOW = 200
 
     def __init__(self, bus):
 
         self.bus = bus
 
         self.buffer = deque(maxlen=self.BUFFER_SIZE)
-        self.alpha_history = deque(maxlen=self.NORMALIZE_WINDOW)
 
         self.strategy_scores = {}
 
@@ -51,16 +49,52 @@ class SignalRankingWorker:
             for data in ranked:
 
                 score = data["score"]
-
-                if score <= 0:
-                    continue
-
                 signal = data["signal"]
 
+                symbol = signal.get("symbol")
+                strategy = signal.get("strategy")
+
+                if score <= 0:
+
+                    self.bus.publish(
+                        "ranking.reject",
+                        {
+                            "symbol": symbol,
+                            "strategy": strategy,
+                            "score": score,
+                            "reason": "score<=0"
+                        }
+                    )
+
+                    continue
+
+                if published >= self.MAX_SIGNALS:
+
+                    self.bus.publish(
+                        "ranking.reject",
+                        {
+                            "symbol": symbol,
+                            "strategy": strategy,
+                            "score": score,
+                            "reason": "topN_limit"
+                        }
+                    )
+
+                    continue
+
                 logger.info(
-                    "[RANKING] passed %s score=%.3f",
-                    signal["symbol"],
+                    "[RANKING PASS] %s score=%.3f",
+                    symbol,
                     score
+                )
+
+                self.bus.publish(
+                    "ranking.pass",
+                    {
+                        "symbol": symbol,
+                        "strategy": strategy,
+                        "score": score
+                    }
                 )
 
                 self.bus.publish(
@@ -69,9 +103,6 @@ class SignalRankingWorker:
                 )
 
                 published += 1
-
-                if published >= self.MAX_SIGNALS:
-                    break
 
             self.buffer.clear()
 
@@ -89,8 +120,6 @@ class SignalRankingWorker:
     def on_signal(self, signal):
 
         raw_alpha = self.alpha_score(signal)
-
-        self.alpha_history.append(raw_alpha)
 
         norm_alpha = self.normalize_alpha(raw_alpha)
 
@@ -111,60 +140,49 @@ class SignalRankingWorker:
     def alpha_score(self, signal):
 
         price = signal.get("price")
-        ema = signal.get("ema")
-        vwap = signal.get("vwap")
-
-        volume_ratio = signal.get("volume_ratio", 0)
-        price_change = signal.get("price_change", 0)
-
         atr = signal.get("atr")
+
+        features = signal.get("features", {})
+
+        volume_ratio = features.get("volume_ratio", 0)
+        price_change = features.get("price_change", 0)
+        vwap_distance = features.get("vwap_distance", 0)
 
         if not price:
             return 0
 
-        trend = 0
-
-        if ema:
-            trend += (price - ema) / ema
-
-        if vwap:
-            trend += (price - vwap) / vwap
-
-        trend_score = trend * 200
-
-        momentum_score = price_change * 300
-
-        liquidity_score = volume_ratio * 30
+        trend_score = vwap_distance * 600
+        momentum_score = price_change * 1000
+        liquidity_score = volume_ratio * 80
 
         volatility_penalty = 0
 
         if atr and price:
 
             vol = atr / price
-            volatility_penalty = vol * 150
+            volatility_penalty = vol * 80
 
-        score = (
+        raw = (
             trend_score
             + momentum_score
             + liquidity_score
             - volatility_penalty
         )
 
-        return score
+        return raw
 
     def normalize_alpha(self, alpha):
 
-        if len(self.alpha_history) < 20:
-            return alpha
+        # 🔴 scale 확장 (기관형 방식)
+        scale = 80
 
-        mean = statistics.mean(self.alpha_history)
-        stdev = statistics.stdev(self.alpha_history)
+        norm = math.tanh(alpha / scale)
 
-        if stdev == 0:
-            return alpha
+        # 🔴 extreme alpha soft clipping
+        if norm > 0.9:
+            norm = 0.9 + (norm - 0.9) * 0.2
 
-        z = (alpha - mean) / stdev
+        if norm < -0.9:
+            norm = -0.9 + (norm + 0.9) * 0.2
 
-        z = max(-3, min(3, z))
-
-        return z
+        return norm

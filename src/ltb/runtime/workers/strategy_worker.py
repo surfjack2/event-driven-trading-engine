@@ -28,6 +28,9 @@ class StrategyWorker:
         self.positions = {}
         self.pending_orders = set()
 
+        # 🔴 Meta strategy control
+        self.disabled_strategies = set()
+
         loader = StrategyLoader()
         strategies = loader.load()
 
@@ -41,6 +44,10 @@ class StrategyWorker:
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
         self.bus.subscribe("order.request", self.on_order_request)
         self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
+
+        # 🔴 meta strategy events
+        self.bus.subscribe("strategy.disabled", self.on_strategy_disabled)
+        self.bus.subscribe("strategy.enabled", self.on_strategy_enabled)
 
     def run(self):
 
@@ -100,6 +107,33 @@ class StrategyWorker:
 
         self.pending_orders.discard(order["symbol"])
 
+    # 🔴 Meta strategy disable
+    def on_strategy_disabled(self, data):
+
+        strategy = data.get("strategy")
+
+        if strategy:
+            self.disabled_strategies.add(strategy)
+
+            logger.warning(
+                "[STRATEGY] disabled %s",
+                strategy
+            )
+
+    # 🔴 Meta strategy enable
+    def on_strategy_enabled(self, data):
+
+        strategy = data.get("strategy")
+
+        if strategy and strategy in self.disabled_strategies:
+
+            self.disabled_strategies.remove(strategy)
+
+            logger.info(
+                "[STRATEGY] enabled %s",
+                strategy
+            )
+
     def on_market(self, event):
 
         symbol = event.get("symbol")
@@ -144,20 +178,55 @@ class StrategyWorker:
 
         for signal in signals:
 
-            signal["rsi"] = event.get("rsi")
-            signal["volume"] = event.get("volume")
-            signal["volume_ma"] = event.get("volume_ma")
-            signal["volume_ratio"] = volume_ratio
+            strategy_name = signal.get("strategy")
 
-            signal["vwap"] = event.get("vwap")
-            signal["ema"] = event.get("ema")
+            # 🔴 Meta strategy filter
+            if strategy_name in self.disabled_strategies:
+                continue
 
-            signal["atr"] = event.get("atr")
+            # -----------------------------
+            # feature metadata
+            # -----------------------------
 
-            signal["price_change"] = event.get("price_change")
-            signal["volatility"] = event.get("volatility")
+            price = event.get("price")
+            vwap = event.get("vwap")
 
-            logger.info("[STRATEGY] signal generated %s", signal)
+            vwap_distance = None
+
+            if price and vwap:
+                vwap_distance = (price - vwap) / vwap
+
+            signal["features"] = {
+
+                "rsi": event.get("rsi"),
+
+                "volume": event.get("volume"),
+                "volume_ma": event.get("volume_ma"),
+                "volume_ratio": volume_ratio,
+
+                "vwap": vwap,
+                "vwap_distance": vwap_distance,
+
+                "ema": event.get("ema"),
+
+                "atr": event.get("atr"),
+
+                "price_change": event.get("price_change"),
+
+                "volatility": event.get("volatility")
+            }
+
+            # -----------------------------
+            # reason tag
+            # -----------------------------
+
+            signal["reason"] = strategy_name
+
+            logger.info(
+                "[STRATEGY] signal generated symbol=%s reason=%s",
+                signal.get("symbol"),
+                strategy_name
+            )
 
             self.bus.publish("strategy.signal", signal)
 

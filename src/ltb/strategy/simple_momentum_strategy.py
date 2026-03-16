@@ -13,6 +13,8 @@ class SimpleMomentumStrategy:
         self.volume_ratio = self.config.get("volume_ratio", 1.2)
         self.price_change_threshold = self.config.get("price_change", 0.001)
 
+        self.vwap_distance = self.config.get("vwap_distance", 0.001)
+
         self.min_volatility = self.config.get("min_volatility", 0.0005)
         self.max_volatility = self.config.get("max_volatility", 0.03)
 
@@ -50,8 +52,15 @@ class SimpleMomentumStrategy:
         if ema and price < ema:
             return []
 
-        if vwap and price < vwap:
-            return []
+        if vwap:
+
+            if price < vwap:
+                return []
+
+            dist = (price - vwap) / vwap
+
+            if dist < self.vwap_distance:
+                return []
 
         if rsi and rsi < self.rsi_threshold:
             return []

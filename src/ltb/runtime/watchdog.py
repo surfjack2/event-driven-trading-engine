@@ -1,13 +1,20 @@
 import threading
 import time
+import sys
 
 from ltb.runtime.queue_bus import QueueBus
 from ltb.runtime.logging_setup import setup_logging
+
+# console logging control
+from ltb.system.logger import logger, enable_console_logging
 
 # system context
 from ltb.system.context.system_context import SystemContext
 from ltb.system.context.mode import SystemMode
 from ltb.system.context.market import MarketType
+
+# exit manager
+from ltb.runtime.exit_manager import ExitManager
 
 # market
 from ltb.runtime.workers.market_worker import MarketWorker
@@ -69,8 +76,6 @@ from ltb.runtime.workers.heartbeat_worker import HeartbeatWorker
 # validation monitor
 from ltb.runtime.workers.validation_monitor_worker import ValidationMonitorWorker
 
-from ltb.system.logger import logger
-
 
 def start_worker(worker):
 
@@ -105,33 +110,63 @@ def start_worker(worker):
     return t
 
 
+def parse_mode():
+
+    if len(sys.argv) <= 1:
+        return None
+
+    arg = sys.argv[1].lower()
+
+    if arg == "backtest":
+        return SystemMode.BACKTEST
+
+    if arg == "paper":
+        return SystemMode.PAPER
+
+    if arg == "live":
+        return SystemMode.LIVE
+
+    return None
+
+
 def main():
 
-    # 🔴 logging 초기화 (콘솔 로그 제거 + 파일 로그 사용)
     setup_logging()
 
-    logger.info("=== LTB ENGINE PROCESS STARTED ===")
+    mode = parse_mode()
 
-    # =========================
-    # SYSTEM CONTEXT
-    # =========================
+    if mode is None:
 
-    context = SystemContext(
-        mode=SystemMode.BACKTEST,
-        market=MarketType.US
-    )
+        enable_console_logging()
 
-    logger.info(
-        f"[SYSTEM CONTEXT] mode={context.mode} market={context.market}"
-    )
+        logger.info("=== LTB ENGINE PROCESS STARTED ===")
+        logger.info("[MODE] default engine mode (log stream)")
+
+        context = SystemContext(
+            mode=SystemMode.PAPER,
+            market=MarketType.US
+        )
+
+        enable_monitor = False
+
+    else:
+
+        logger.info("=== LTB ENGINE PROCESS STARTED ===")
+        logger.info(f"[MODE] {mode}")
+
+        context = SystemContext(
+            mode=mode,
+            market=MarketType.US
+        )
+
+        enable_monitor = True
 
     bus = QueueBus()
 
-    workers = [
+    # 🔴 ExitManager 생성
+    exit_manager = ExitManager()
 
-        # =========================
-        # market
-        # =========================
+    workers = [
 
         MarketWorker(bus, context),
 
@@ -142,30 +177,14 @@ def main():
         LiquidityRegimeWorker(bus),
         ExposureWorker(bus),
 
-        # =========================
-        # scanning
-        # =========================
-
         RelativeTurnoverScannerWorker(bus),
         ScannerWorker(bus),
         AlphaRankingWorker(bus),
         UniverseScannerWorker(bus),
 
-        # =========================
-        # ranking
-        # =========================
-
         RankingWorker(bus),
 
-        # =========================
-        # indicators
-        # =========================
-
         IndicatorWorker(bus),
-
-        # =========================
-        # strategy
-        # =========================
 
         StrategyWorker(bus),
         SignalDedupWorker(bus),
@@ -174,58 +193,40 @@ def main():
         LiquidityFilterWorker(bus),
         StrategyAllocationWorker(bus),
 
-        # =========================
-        # intent layer
-        # =========================
-
         PositionIntentWorker(bus),
         CorrelationFilterWorker(bus),
         PortfolioOptimizerWorker(bus),
 
-        # =========================
-        # execution
-        # =========================
-
         ExecutionWorker(bus, context),
         OrderExecutorWorker(bus, context),
 
-        # =========================
-        # portfolio
-        # =========================
+        # 🔴 exit_manager 전달
+        PortfolioWorker(bus, exit_manager),
 
-        PortfolioWorker(bus),
         TradeLedgerWorker(bus, context),
-
-        # =========================
-        # performance
-        # =========================
 
         StrategyPerformanceWorker(bus),
         StrategyKillSwitchWorker(bus),
 
-        # =========================
-        # risk
-        # =========================
+        # 🔴 exit_manager 전달
+        TrailingStopWorker(bus, exit_manager),
 
-        TrailingStopWorker(bus),
-        SignalDecayExitWorker(bus),
-        PositionTimeStopWorker(bus),
+        SignalDecayExitWorker(bus, exit_manager),
+        PositionTimeStopWorker(bus, exit_manager),
         RiskWorker(bus),
 
-        # =========================
-        # analytics / system
-        # =========================
-
         AnalyticsWorker(bus),
-
-        # validation monitor (CLI dashboard)
-        ValidationMonitorWorker(bus, context),
 
         AlertWorker(bus),
         KillSwitchWorker(bus),
         HeartbeatWorker(bus),
-
     ]
+
+    if enable_monitor:
+
+        workers.append(
+            ValidationMonitorWorker(bus, context)
+        )
 
     threads = []
 

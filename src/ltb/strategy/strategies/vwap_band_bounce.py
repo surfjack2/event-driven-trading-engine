@@ -1,9 +1,12 @@
 from ltb.system.logger import logger
+import time
 
 
 class VWAPBandBounceStrategy:
 
     name = "vwap_bounce"
+
+    TOUCH_COOLDOWN = 30
 
     def __init__(self, config=None):
 
@@ -15,11 +18,14 @@ class VWAPBandBounceStrategy:
         self.min_volatility = self.config.get("min_volatility", 0.0005)
         self.max_volatility = self.config.get("max_volatility", 0.03)
 
+        # 🔴 band touch state
+        self.last_touch = {}
+
     def evaluate(self, event):
 
         symbol = event["symbol"]
 
-        price = event["price"]
+        price = event.get("price")
         prev = event.get("prev_price")
 
         vwap = event.get("vwap")
@@ -30,10 +36,12 @@ class VWAPBandBounceStrategy:
 
         atr = event.get("atr")
 
-        if not vwap or not vwap_lower or not prev:
+        if not vwap or not vwap_lower or not prev or not price:
             return []
 
+        # volatility filter
         if atr:
+
             volatility = atr / price
 
             if volatility < self.min_volatility:
@@ -42,16 +50,29 @@ class VWAPBandBounceStrategy:
             if volatility > self.max_volatility:
                 return []
 
-        if price > vwap_lower:
+        # 🔴 band touch event detection
+        touched = prev > vwap_lower and price <= vwap_lower
+
+        if not touched:
+            return []
+
+        # 🔴 touch cooldown
+        now = time.time()
+
+        last = self.last_touch.get(symbol)
+
+        if last and now - last < self.TOUCH_COOLDOWN:
             return []
 
         logger.info("[VWAP_BOUNCE] lower band touched %s", symbol)
 
+        # reversal check
         reversal = (price - prev) / prev
 
         if reversal < self.reversal_threshold:
             return []
 
+        # volume confirmation
         if volume and volume_ma and volume_ma > 0:
 
             ratio = volume / volume_ma
@@ -60,6 +81,8 @@ class VWAPBandBounceStrategy:
                 return []
 
         logger.info("[VWAP_BOUNCE] signal confirmed %s", symbol)
+
+        self.last_touch[symbol] = now
 
         return [{
             "symbol": symbol,

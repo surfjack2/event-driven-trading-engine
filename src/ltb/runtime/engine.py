@@ -2,8 +2,8 @@ import logging
 import time
 
 from ltb.runtime.logging_setup import setup_logging
-
 from ltb.runtime.event_bus import EventBus
+from ltb.runtime.exit_manager import ExitManager
 
 from ltb.runtime.workers.market_worker import MarketWorker
 from ltb.runtime.workers.strategy_worker import StrategyWorker
@@ -37,6 +37,9 @@ class LTBEngine:
 
         logger.info("[KIS EXECUTOR INITIALIZED]")
 
+        # Exit Manager
+        self.exit_manager = ExitManager()
+
         self.workers = []
 
         self._init_workers()
@@ -53,9 +56,9 @@ class LTBEngine:
 
             OrderExecutorWorker(self.bus, self.executor),
 
-            PortfolioWorker(self.bus),
+            PortfolioWorker(self.bus, self.exit_manager),
 
-            TrailingStopWorker(self.bus),
+            TrailingStopWorker(self.bus, self.exit_manager),
 
             RiskWorker(self.bus),
 

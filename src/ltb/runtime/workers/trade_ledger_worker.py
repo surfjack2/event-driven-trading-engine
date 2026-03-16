@@ -6,13 +6,13 @@ from ltb.system.logger import logger
 
 class TradeLedgerWorker:
 
+    SNAPSHOT_INTERVAL = 3
+
     def __init__(self, bus, context):
 
         self.bus = bus
-
         self.context = context
 
-        # shared risk engine
         self.risk = context.risk_engine
 
         self.trades = []
@@ -20,8 +20,12 @@ class TradeLedgerWorker:
         self.strategy_pnl = defaultdict(float)
 
         self.daily_pnl = 0
+        self.weekly_pnl = 0
+        self.monthly_pnl = 0
 
         self.open_positions = {}
+
+        self.last_snapshot = 0
 
         self.bus.subscribe("POSITION_OPENED", self.on_position_open)
         self.bus.subscribe("POSITION_CLOSED", self.on_trade_closed)
@@ -31,7 +35,33 @@ class TradeLedgerWorker:
         logger.info("[TRADE LEDGER WORKER STARTED]")
 
         while True:
-            time.sleep(5)
+
+            now = time.time()
+
+            if now - self.last_snapshot > self.SNAPSHOT_INTERVAL:
+
+                self.publish_account_snapshot()
+
+                self.last_snapshot = now
+
+            time.sleep(1)
+
+    def publish_account_snapshot(self):
+
+        capital = self.risk.get_capital()
+
+        equity = capital + self.daily_pnl
+
+        snapshot = {
+            "capital": capital,
+            "equity": equity,
+            "daily_pnl": self.daily_pnl,
+            "weekly_pnl": self.weekly_pnl,
+            "monthly_pnl": self.monthly_pnl,
+            "open_positions": len(self.open_positions),
+        }
+
+        self.bus.publish("account.snapshot", snapshot)
 
     def on_position_open(self, position):
 
@@ -74,8 +104,9 @@ class TradeLedgerWorker:
         self.trades.append(trade_record)
 
         self.daily_pnl += pnl
+        self.weekly_pnl += pnl
+        self.monthly_pnl += pnl
 
-        # 🔴 risk engine update
         self.risk.record_trade(pnl)
 
         if strategy:

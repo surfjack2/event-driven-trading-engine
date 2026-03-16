@@ -16,7 +16,7 @@ class PositionIntentWorker:
 
         self.last_flush = time.time()
 
-        self.bus.subscribe("allocation.signal", self.on_signal)
+        self.bus.subscribe("quality.signal", self.on_signal)
 
     def run(self):
 
@@ -55,10 +55,11 @@ class PositionIntentWorker:
             if best:
 
                 logger.info(
-                    "[INTENT] resolved symbol=%s strategy=%s weight=%s",
+                    "[INTENT] resolved symbol=%s strategy=%s weight=%s alpha=%.3f",
                     symbol,
                     best.get("strategy"),
-                    best.get("allocation_weight")
+                    best.get("allocation_weight"),
+                    best.get("alpha_score", 0)
                 )
 
                 self.bus.publish("intent.signal", best)
@@ -68,15 +69,18 @@ class PositionIntentWorker:
     def select_best(self, signals):
 
         best = None
-        best_weight = -1
+        best_score = -999
 
         for s in signals:
 
             weight = s.get("allocation_weight", 0)
+            alpha = s.get("alpha_score", 0)
 
-            if weight > best_weight:
+            score = alpha * weight
+
+            if score > best_score:
 
                 best = s
-                best_weight = weight
+                best_score = score
 
         return best
