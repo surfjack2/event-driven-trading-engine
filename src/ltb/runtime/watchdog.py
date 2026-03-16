@@ -2,6 +2,7 @@ import threading
 import time
 
 from ltb.runtime.queue_bus import QueueBus
+from ltb.runtime.logging_setup import setup_logging
 
 # system context
 from ltb.system.context.system_context import SystemContext
@@ -105,6 +106,9 @@ def start_worker(worker):
 
 
 def main():
+
+    # 🔴 logging 초기화 (콘솔 로그 제거 + 파일 로그 사용)
+    setup_logging()
 
     logger.info("=== LTB ENGINE PROCESS STARTED ===")
 

@@ -24,6 +24,7 @@ logger = logging.getLogger("LTB")
 
 logger.setLevel(logging.INFO)
 
+# 다른 logger로 전파 방지
 logger.propagate = False
 
 
@@ -42,11 +43,9 @@ file_handler = RotatingFileHandler(
 file_handler.setFormatter(formatter)
 
 
-# 콘솔 로그
-console_handler = logging.StreamHandler()
-
-console_handler.setFormatter(formatter)
+# 🔴 콘솔 핸들러 제거
+# console_handler = logging.StreamHandler()
+# console_handler.setFormatter(formatter)
 
 
 logger.addHandler(file_handler)
-logger.addHandler(console_handler)
