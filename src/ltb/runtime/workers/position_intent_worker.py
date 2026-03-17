@@ -8,6 +8,13 @@ class PositionIntentWorker:
 
     FLUSH_INTERVAL = 1.0
 
+    # 전략 충돌 방지
+    STRATEGY_PENALTY = {
+        "simple_momentum": 1.0,
+        "vwap_reclaim": 1.05,
+        "vwap_bounce": 0.95
+    }
+
     def __init__(self, bus):
 
         self.bus = bus
@@ -16,9 +23,9 @@ class PositionIntentWorker:
 
         self.last_flush = time.time()
 
-        # FIXED pipeline topic
-        # allocation.signal → TradeQualityFilterWorker → quality.signal → intent
-        self.bus.subscribe("quality.signal", self.on_signal)
+        # pipeline
+        # 기존 quality.signal 대신 allocation.signal 직접 수신
+        self.bus.subscribe("allocation.signal", self.on_signal)
 
     def run(self):
 
@@ -75,10 +82,14 @@ class PositionIntentWorker:
 
         for s in signals:
 
+            strategy = s.get("strategy")
+
             weight = s.get("allocation_weight", 0)
             alpha = s.get("alpha_score", 0)
 
-            score = alpha * weight
+            strategy_multiplier = self.STRATEGY_PENALTY.get(strategy, 1.0)
+
+            score = alpha * weight * strategy_multiplier
 
             if score > best_score:
 

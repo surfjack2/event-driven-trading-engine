@@ -5,8 +5,7 @@ from ltb.system.logger import logger
 
 class SignalPersistenceWorker:
 
-    # 안정성 강화
-    PERSIST_TICKS = 3
+    PERSIST_TICKS = 1
     WINDOW = 15
 
     def __init__(self, bus):
@@ -32,8 +31,11 @@ class SignalPersistenceWorker:
     def on_signal(self, signal):
 
         symbol = signal["symbol"]
+        strategy = signal.get("strategy")
 
-        buffer = self.buffers[symbol]
+        key = (symbol, strategy)
+
+        buffer = self.buffers[key]
 
         buffer.append(signal)
 
@@ -41,8 +43,9 @@ class SignalPersistenceWorker:
             return
 
         logger.info(
-            "[PERSISTENCE] confirmed %s ticks=%s",
+            "[PERSISTENCE] confirmed %s strategy=%s ticks=%s",
             symbol,
+            strategy,
             len(buffer)
         )
 

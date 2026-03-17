@@ -21,6 +21,10 @@ from ltb.runtime.workers.execution_worker import ExecutionWorker
 from ltb.runtime.workers.order_executor_worker import OrderExecutorWorker
 from ltb.runtime.workers.portfolio_worker import PortfolioWorker
 from ltb.runtime.workers.trailing_stop_worker import TrailingStopWorker
+
+from ltb.runtime.workers.trade_ledger_worker import TradeLedgerWorker
+from ltb.runtime.workers.strategy_performance_worker import StrategyPerformanceWorker
+
 from ltb.runtime.workers.risk_worker import RiskWorker
 from ltb.runtime.workers.analytics_worker import AnalyticsWorker
 from ltb.runtime.workers.alert_worker import AlertWorker
@@ -99,6 +103,10 @@ def run_engine(context: SystemContext):
         # portfolio
         PortfolioWorker(bus),
         TrailingStopWorker(bus),
+
+        # trade accounting
+        TradeLedgerWorker(bus, context),
+        StrategyPerformanceWorker(bus),
 
         # risk
         RiskWorker(bus),

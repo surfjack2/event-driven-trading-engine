@@ -6,6 +6,8 @@ from ltb.system.logger import logger
 
 class StrategyPerformanceWorker:
 
+    MAX_PROFIT_FACTOR = 3.0
+
     def __init__(self, bus):
 
         self.bus = bus
@@ -56,6 +58,9 @@ class StrategyPerformanceWorker:
 
             profit_factor = profit / loss if loss > 0 else 0
 
+            # 🔴 stability clip
+            profit_factor = min(profit_factor, self.MAX_PROFIT_FACTOR)
+
             avg_return = total / len(pnl_list)
 
             score = (
@@ -74,7 +79,8 @@ class StrategyPerformanceWorker:
             }
 
             logger.info(
-                f"[STRATEGY PERF] {strategy} trades={len(pnl_list)} pnl={total} win_rate={win_rate:.2f} pf={profit_factor:.2f} score={score:.2f}"
+                f"[STRATEGY PERF] {strategy} trades={len(pnl_list)} pnl={total} "
+                f"win_rate={win_rate:.2f} pf={profit_factor:.2f} score={score:.2f}"
             )
 
             self.bus.publish(

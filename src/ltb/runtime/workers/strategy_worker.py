@@ -28,7 +28,7 @@ class StrategyWorker:
         self.positions = {}
         self.pending_orders = set()
 
-        # 🔴 Meta strategy control
+        # Meta strategy control
         self.disabled_strategies = set()
 
         loader = StrategyLoader()
@@ -45,7 +45,7 @@ class StrategyWorker:
         self.bus.subscribe("order.request", self.on_order_request)
         self.bus.subscribe("ORDER_FILLED", self.on_order_filled)
 
-        # 🔴 meta strategy events
+        # meta strategy events
         self.bus.subscribe("strategy.disabled", self.on_strategy_disabled)
         self.bus.subscribe("strategy.enabled", self.on_strategy_enabled)
 
@@ -107,7 +107,7 @@ class StrategyWorker:
 
         self.pending_orders.discard(order["symbol"])
 
-    # 🔴 Meta strategy disable
+    # Meta strategy disable
     def on_strategy_disabled(self, data):
 
         strategy = data.get("strategy")
@@ -120,7 +120,7 @@ class StrategyWorker:
                 strategy
             )
 
-    # 🔴 Meta strategy enable
+    # Meta strategy enable
     def on_strategy_enabled(self, data):
 
         strategy = data.get("strategy")
@@ -180,7 +180,7 @@ class StrategyWorker:
 
             strategy_name = signal.get("strategy")
 
-            # 🔴 Meta strategy filter
+            # Meta strategy filter
             if strategy_name in self.disabled_strategies:
                 continue
 
@@ -188,13 +188,19 @@ class StrategyWorker:
             # feature metadata
             # -----------------------------
 
-            price = event.get("price")
             vwap = event.get("vwap")
 
             vwap_distance = None
 
             if price and vwap:
                 vwap_distance = (price - vwap) / vwap
+
+            # -----------------------------
+            # signal schema stabilization
+            # -----------------------------
+
+            signal["price"] = price
+            signal["timestamp"] = now
 
             signal["features"] = {
 
