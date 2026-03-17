@@ -1,7 +1,0 @@
-{
-  "mock":{
-	"enabled": true,
-	"mode": "drop",
-	"price": 50000
-  }
-}
