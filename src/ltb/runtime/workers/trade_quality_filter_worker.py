@@ -8,6 +8,10 @@ class TradeQualityFilterWorker:
     MAX_VOLATILITY = 0.04
     MIN_MOMENTUM = 0.0003
 
+    # VWAP reclaim 강화 파라미터
+    VWAP_RECLAIM_MIN_DISTANCE = 0.001
+    VWAP_RECLAIM_MIN_VOLUME = 1.0
+
     def __init__(self, bus):
 
         self.bus = bus
@@ -30,7 +34,7 @@ class TradeQualityFilterWorker:
 
         volume_ratio = features.get("volume_ratio", 0)
         price_change = features.get("price_change", 0)
-        vwap_distance = features.get("vwap_distance", 0)
+        vwap_distance = features.get("vwap_distance")
 
         atr = features.get("atr")
         price = signal.get("price")
@@ -38,7 +42,10 @@ class TradeQualityFilterWorker:
         if not price:
             return
 
+        # -----------------------------
         # liquidity check
+        # -----------------------------
+
         if volume_ratio < self.MIN_VOLUME_RATIO:
 
             logger.info(
@@ -48,7 +55,10 @@ class TradeQualityFilterWorker:
 
             return
 
+        # -----------------------------
         # volatility check
+        # -----------------------------
+
         if atr:
 
             volatility = atr / price
@@ -62,7 +72,10 @@ class TradeQualityFilterWorker:
 
                 return
 
+        # -----------------------------
         # momentum quality
+        # -----------------------------
+
         if abs(price_change) < self.MIN_MOMENTUM:
 
             logger.info(
@@ -72,13 +85,30 @@ class TradeQualityFilterWorker:
 
             return
 
-        # VWAP fake reclaim filter
+        # -----------------------------
+        # VWAP reclaim 강화 필터
+        # -----------------------------
+
         if signal.get("strategy") == "vwap_reclaim":
 
-            if abs(vwap_distance) < 0.0002:
+            if vwap_distance is None:
+                return
+
+            # reclaim depth 확인
+            if vwap_distance < self.VWAP_RECLAIM_MIN_DISTANCE:
 
                 logger.info(
-                    "[QUALITY FILTER] rejected %s reason=fake_reclaim",
+                    "[QUALITY FILTER] rejected %s reason=weak_reclaim",
+                    signal.get("symbol")
+                )
+
+                return
+
+            # reclaim liquidity 확인
+            if volume_ratio < self.VWAP_RECLAIM_MIN_VOLUME:
+
+                logger.info(
+                    "[QUALITY FILTER] rejected %s reason=no_reclaim_liquidity",
                     signal.get("symbol")
                 )
 

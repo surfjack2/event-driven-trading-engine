@@ -16,6 +16,9 @@ class ExecutionWorker:
 
     MAX_PORTFOLIO_HEAT = 0.06
 
+    # 🔴 Signal decay guard
+    SIGNAL_MAX_AGE = 3.0
+
     def __init__(self, bus, context):
 
         self.bus = bus
@@ -143,7 +146,6 @@ class ExecutionWorker:
         price = signal["price"]
         atr = signal.get("atr")
 
-        # fallback ATR (1% volatility proxy)
         if not atr:
             atr = price * 0.01
 
@@ -181,6 +183,21 @@ class ExecutionWorker:
             return
 
         now = time.time()
+
+        # 🔴 Signal decay guard
+        signal_ts = signal.get("timestamp", now)
+
+        if now - signal_ts > self.SIGNAL_MAX_AGE:
+
+            logger.info(
+                "[EXECUTION BLOCK] stale signal %s age=%.2f",
+                signal.get("symbol"),
+                now - signal_ts
+            )
+
+            self.publish_block(signal.get("symbol"), "stale_signal")
+
+            return
 
         if now - self.last_order_time < self.GLOBAL_ORDER_INTERVAL:
             return

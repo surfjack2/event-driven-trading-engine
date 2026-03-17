@@ -16,6 +16,8 @@ class PositionIntentWorker:
 
         self.last_flush = time.time()
 
+        # FIXED pipeline topic
+        # allocation.signal → TradeQualityFilterWorker → quality.signal → intent
         self.bus.subscribe("quality.signal", self.on_signal)
 
     def run(self):

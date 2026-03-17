@@ -26,7 +26,8 @@ class PortfolioOptimizerWorker:
 
         self.last_flush = time.time()
 
-        self.bus.subscribe("filtered.intent", self.on_intent)
+        # FIXED pipeline topic
+        self.bus.subscribe("intent.signal", self.on_intent)
         self.bus.subscribe("portfolio.update", self.on_portfolio_update)
 
     def run(self):
@@ -93,28 +94,16 @@ class PortfolioOptimizerWorker:
 
                 momentum = s.get("price_change", 0)
 
-                # -----------------------
-                # base score
-                # -----------------------
-
                 score = (
                     alpha * 0.5
                     + weight * 0.3
                     + momentum * 0.2
                 )
 
-                # -----------------------
-                # volatility adjustment
-                # -----------------------
-
                 volatility = atr / price if price else 0.001
 
                 if volatility > 0:
                     score *= (1 - min(volatility * 5, 0.4))
-
-                # -----------------------
-                # liquidity adjustment
-                # -----------------------
 
                 if volume_ma > 0:
 

@@ -58,9 +58,19 @@ class HeartbeatWorker:
 
                 logger.info("[HEARTBEAT] engine alive")
 
+                # system heartbeat
                 self.bus.publish(
                     "system.heartbeat",
                     {
+                        "timestamp": now
+                    }
+                )
+
+                # 🔴 CLI worker health용 heartbeat
+                self.bus.publish(
+                    "worker.heartbeat",
+                    {
+                        "worker": "heartbeat_worker",
                         "timestamp": now
                     }
                 )
