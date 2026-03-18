@@ -200,9 +200,6 @@ Author
 
 Jack Go
 
-21 years experience in IT / security engineering
-Transitioning into quantitative trading system development
-
 Note
 
 Some strategy implementations and risk models are intentionally removed
